@@ -77,12 +77,13 @@ jobs:
         env:
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
         run: |
+          # Note: '*.html' would also exclude Jinja templates in tax_auto/tax_auto/web/templates/ — don't use it!
+          # Only exclude root-level strategy docs by listing them explicitly if needed.
           rsync -az --delete \
             --exclude='_data/' \
             --exclude='.env' \
             --exclude='.git/' \
             --exclude='rawdata/' \
-            --exclude='*.html' \
             -e "ssh -i ~/.ssh/deploy_key -p ${{ secrets.SSH_PORT || '22' }} -o StrictHostKeyChecking=accept-new" \
             ./ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:$DEPLOY_PATH/
 
