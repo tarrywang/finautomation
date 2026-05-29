@@ -107,9 +107,11 @@ jobs:
                docker pull \$FAPIAO_IMAGE
                docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
 
-               # Bring up everything (idempotent: only recreates what changed)
-               # Postgres won't restart unless its config/image changed.
-               docker compose -f compose.prod.yml up -d
+               # Force rebuild the app image from current source.
+               # (compose.prod.yml uses `build:` not `image:`, so without
+               # --build it'd silently keep using the stale cached image.)
+               docker compose -f compose.prod.yml build app
+               docker compose -f compose.prod.yml up -d --force-recreate --no-deps app
 
                # Cleanup older images (keep 3)
                docker image prune -f --filter 'until=168h' || true
