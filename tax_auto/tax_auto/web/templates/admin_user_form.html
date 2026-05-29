@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}{{ "编辑" if u else "新建" }}用户 · 发票仓库{% endblock %}
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-4">
+  <a href="/admin/users" class="text-sm text-slate-500 hover:underline">← 返回用户列表</a>
+
+  <h1 class="text-2xl font-bold">
+    {% if u %}✏️ 编辑用户 · {{ u.username }}{% else %}➕ 新建用户{% endif %}
+  </h1>
+
+  {% if error %}<div class="px-4 py-3 rounded-lg bg-rose-50 text-rose-700 text-sm border border-rose-200">⚠️ {{ error }}</div>{% endif %}
+  {% if success %}<div class="px-4 py-3 rounded-lg bg-emerald-50 text-emerald-700 text-sm border border-emerald-200">✓ {{ success }}</div>{% endif %}
+
+  <form method="POST" action="{% if u %}/admin/users/{{ u.id }}{% else %}/admin/users{% endif %}"
+        class="bg-white rounded-lg shadow border border-slate-200 p-6 space-y-4">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+    {% if not u %}
+    <div>
+      <label class="block text-sm text-slate-600 mb-1">用户名 *</label>
+      <input type="text" name="username" required minlength="3" class="w-full px-3 py-2 border border-slate-300 rounded">
+      <div class="text-xs text-slate-500 mt-1">登录用,3~50 位字母/数字/下划线/连字符</div>
+    </div>
+    {% else %}
+    <div>
+      <label class="block text-sm text-slate-600 mb-1">用户名(不可改)</label>
+      <input type="text" value="{{ u.username }}" disabled class="w-full px-3 py-2 border border-slate-300 rounded bg-slate-50 text-slate-500">
+    </div>
+    {% endif %}
+
+    <div>
+      <label class="block text-sm text-slate-600 mb-1">显示名</label>
+      <input type="text" name="display_name" value="{{ u.display_name if u else '' }}" class="w-full px-3 py-2 border border-slate-300 rounded">
+    </div>
+
+    <div>
+      <label class="block text-sm text-slate-600 mb-1">邮箱</label>
+      <input type="email" name="email" value="{{ u.email if u else '' }}" class="w-full px-3 py-2 border border-slate-300 rounded">
+    </div>
+
+    <div>
+      <label class="block text-sm text-slate-600 mb-1">角色 *</label>
+      <select name="role" class="w-full px-3 py-2 border border-slate-300 rounded bg-white">
+        <option value="operator" {% if u and u.role == 'operator' %}selected{% endif %}>业务员(只查授权公司)</option>
+        <option value="supervisor" {% if u and u.role == 'supervisor' %}selected{% endif %}>主管(改授权公司)</option>
+        <option value="admin" {% if u and u.role == 'admin' %}selected{% endif %}>管理员(全部权限)</option>
+      </select>
+    </div>
+
+    {% if u %}
+    <div class="flex items-center gap-2">
+      <input type="checkbox" name="is_active" id="is_active" {% if u.is_active %}checked{% endif %}>
+      <label for="is_active" class="text-sm">账号启用</label>
+    </div>
+    {% endif %}
+
+    <div class="border-t pt-4">
+      <label class="block text-sm text-slate-600 mb-1">
+        {% if u %}重置密码(留空则不改){% else %}初始密码 *{% endif %}
+      </label>
+      <input type="password" name="{% if u %}new_password{% else %}password{% endif %}"
+             {% if not u %}required minlength="10"{% endif %}
+             autocomplete="new-password"
+             class="w-full px-3 py-2 border border-slate-300 rounded">
+      <div class="text-xs text-slate-500 mt-1">至少 10 位,包含字母和数字</div>
+    </div>
+
+    <div class="flex items-center gap-2">
+      <input type="checkbox" name="{% if u %}force_change{% else %}must_change_password{% endif %}"
+             id="must_change" {% if not u %}checked{% endif %}>
+      <label for="must_change" class="text-sm">首次登录强制改密</label>
+    </div>
+
+    <div class="flex gap-2 pt-2 border-t">
+      <button type="submit" class="bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded">
+        {% if u %}保存{% else %}创建{% endif %}
+      </button>
+      <a href="/admin/users" class="px-4 py-2 text-slate-600 hover:underline">取消</a>
+      {% if u and u.locked_until %}
+        <form action="/admin/users/{{ u.id }}/unlock" method="POST" class="ml-auto">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button class="bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 px-4 py-2 rounded">🔓 解锁账号</button>
+        </form>
+      {% endif %}
+    </div>
+
+    {% if u %}
+    <div class="text-xs text-slate-500 pt-2">
+      创建于 {{ u.created_at.strftime("%Y-%m-%d %H:%M") if u.created_at else "—" }}
+      · 密码上次更新 {{ u.password_changed_at.strftime("%Y-%m-%d") if u.password_changed_at else "—" }}
+      {% if u.last_login_ip %}· 上次登录 IP {{ u.last_login_ip }}{% endif %}
+    </div>
+    {% endif %}
+  </form>
+</div>
+{% endblock %}

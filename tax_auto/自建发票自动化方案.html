@@ -1,0 +1,858 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>自建发票自动化方案 · Build Plan · TarryAI</title>
+  <link rel="stylesheet" href="tokens.css"/>
+  <style>
+    .wrap { max-width: 1180px; margin: 0 auto; padding: 48px 56px 80px; position: relative; z-index: 1; }
+    .header-row { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 32px; }
+    .deck-meta { font-family: var(--font-mono); font-size: 11px; color: var(--tarry-muted); letter-spacing: 0.18em; text-align: right; }
+
+    .hero { position: relative; padding: 40px 0 28px; }
+    .hero h1 { font-family: var(--font-cn); font-weight: 800; font-size: 44px;
+               line-height: 1.18; letter-spacing: 0.01em; margin: 14px 0 12px; color: var(--tarry-ink); }
+    .hero .sub-en { font-family: var(--font-sans); font-style: italic; color: var(--tarry-muted); font-size: 15px; letter-spacing: 0.04em; max-width: 760px; line-height: 1.6; margin: 0; }
+    .ghost-tri { position: absolute; right: -110px; top: -60px; width: 460px; height: 460px; opacity: .07; pointer-events: none; z-index: 0; }
+
+    .tldr { background: linear-gradient(135deg, #0D47A1 0%, #1E88E5 100%); color: var(--tarry-white); border-radius: 12px; padding: 32px 36px; margin-top: 24px; box-shadow: 0 12px 32px rgba(13,71,161,0.18); }
+    .tldr .label { font-size: 11px; letter-spacing: 0.22em; font-weight: 700; opacity: 0.85; }
+    .tldr h3 { font-family: var(--font-cn); font-weight: 700; font-size: 22px; margin: 8px 0 14px; }
+    .tldr p { font-family: var(--font-cn); font-size: 15px; line-height: 1.78; margin: 0; opacity: 0.96; }
+    .tldr strong { color: #B8E8F5; font-weight: 700; }
+    .tldr code { font-family: var(--font-mono); background: rgba(255,255,255,0.13); padding: 1px 7px; border-radius: 4px; font-size: 13px; }
+
+    .section { margin-top: 56px; position: relative; }
+    .section-head { margin-bottom: 24px; }
+    .section-head h2 { font-family: var(--font-cn); font-weight: 700; font-size: 26px; margin: 6px 0 6px; color: var(--tarry-ink); }
+    .section-head .en-sub { font-family: var(--font-sans); font-style: italic; font-size: 12px; color: var(--tarry-muted); letter-spacing: 0.06em; }
+
+    p.body { font-family: var(--font-cn); font-size: 14.5px; line-height: 1.78; color: #2A3A5C; margin: 12px 0; }
+    p.body strong { color: var(--tarry-ink); font-weight: 700; }
+    p.body code { font-family: var(--font-mono); background: var(--tarry-paper); padding: 1px 6px; border-radius: 3px; font-size: 13px; color: var(--tarry-navy); }
+
+    .callout { border-left: 3px solid var(--tarry-blue); background: rgba(30,136,229,0.05); padding: 14px 20px; margin: 18px 0; border-radius: 0 6px 6px 0; }
+    .callout p { margin: 0; font-family: var(--font-cn); font-size: 13.5px; line-height: 1.7; color: #2A3A5C; }
+    .callout strong { color: var(--tarry-ink); }
+
+    /* Recommendation block */
+    .rec { background: var(--tarry-white); border: 1px solid var(--tarry-rule); border-radius: 12px; padding: 28px 32px; box-shadow: var(--tarry-shadow); margin: 18px 0; }
+    .rec.primary { border-top: 5px solid #2BA672; }
+    .rec.secondary { border-top: 5px solid var(--tarry-blue); }
+    .rec .verdict-tag { display: inline-block; font-size: 10.5px; font-weight: 700; letter-spacing: 0.2em; padding: 4px 10px; border-radius: 4px; margin-bottom: 12px; }
+    .tag-pick { background: rgba(43,166,114,0.14); color: #1F6F4B; }
+    .tag-alt  { background: rgba(30,136,229,0.12); color: #1565C0; }
+    .rec h3 { font-family: var(--font-cn); font-weight: 700; font-size: 22px; margin: 0 0 4px; color: var(--tarry-ink); }
+    .rec .en { font-family: var(--font-sans); font-style: italic; font-size: 12.5px; color: var(--tarry-muted); margin-bottom: 18px; letter-spacing: 0.04em; }
+    .rec .reasons { display: grid; gap: 10px; margin: 14px 0; }
+    .rec .reason { display: grid; grid-template-columns: 24px 1fr; gap: 12px; font-family: var(--font-cn); font-size: 14px; line-height: 1.7; color: #2A3A5C; }
+    .rec .reason .icon { color: #2BA672; font-weight: 700; font-size: 16px; }
+    .rec.secondary .reason .icon { color: var(--tarry-blue); }
+
+    /* Decision tables */
+    table.dt { width: 100%; border-collapse: collapse; margin: 18px 0; font-family: var(--font-cn); font-size: 13.5px; background: var(--tarry-white); border-radius: 8px; overflow: hidden; box-shadow: var(--tarry-shadow); }
+    table.dt th { background: var(--tarry-ink); color: var(--tarry-white); text-align: left; padding: 12px 14px; font-weight: 700; font-size: 12.5px; letter-spacing: 0.06em; }
+    table.dt td { padding: 12px 14px; border-bottom: 1px solid var(--tarry-rule); vertical-align: top; line-height: 1.6; }
+    table.dt tr:last-child td { border-bottom: none; }
+    table.dt td.tool { font-weight: 700; color: var(--tarry-ink); white-space: nowrap; }
+    table.dt .pick-row { background: rgba(43,166,114,0.06); }
+    table.dt .pick-row td.tool::before { content: "★ "; color: #2BA672; }
+    table.dt code { font-family: var(--font-mono); font-size: 12px; background: var(--tarry-paper); padding: 1px 5px; border-radius: 3px; color: var(--tarry-navy); }
+
+    /* Architecture diagram */
+    .arch { background: var(--tarry-paper); border: 1px solid var(--tarry-rule); border-radius: 12px; padding: 28px 32px; margin: 20px 0; }
+    .arch-layer { background: var(--tarry-white); border-radius: 8px; padding: 16px 20px; margin: 10px 0; border-left: 4px solid var(--tarry-blue); }
+    .arch-layer .name { font-family: var(--font-cn); font-weight: 700; font-size: 15px; color: var(--tarry-ink); margin-bottom: 4px; }
+    .arch-layer .en { font-family: var(--font-sans); font-style: italic; font-size: 11px; color: var(--tarry-muted); letter-spacing: 0.04em; margin-bottom: 8px; }
+    .arch-layer .desc { font-family: var(--font-cn); font-size: 13px; line-height: 1.65; color: #2A3A5C; }
+    .arch-layer .desc code { font-family: var(--font-mono); font-size: 12px; background: var(--tarry-paper); padding: 1px 5px; border-radius: 3px; color: var(--tarry-navy); }
+    .arch-arrow { text-align: center; color: var(--tarry-blue); font-size: 22px; line-height: 1; margin: 4px 0; opacity: 0.6; }
+
+    /* Code blocks */
+    pre.code { background: #0A1A3A; color: #B8E8F5; font-family: var(--font-mono); font-size: 12.5px; line-height: 1.65; padding: 18px 22px; border-radius: 8px; overflow-x: auto; margin: 14px 0; box-shadow: var(--tarry-shadow); }
+    pre.code .c { color: #6B8FBF; }
+    pre.code .k { color: #5AC8E8; font-weight: 600; }
+    pre.code .s { color: #E0A030; }
+    pre.code .f { color: #FFB8B8; }
+    pre.code .n { color: #FFFFFF; }
+
+    /* Phase timeline */
+    .phases { counter-reset: phase; }
+    .phase { background: var(--tarry-white); border: 1px solid var(--tarry-rule); border-radius: 10px; padding: 24px 28px; margin: 14px 0; box-shadow: var(--tarry-shadow); position: relative; padding-left: 90px; counter-increment: phase; }
+    .phase::before { content: counter(phase, decimal-leading-zero); position: absolute; left: 24px; top: 22px; font-family: var(--font-mono); font-size: 32px; font-weight: 700; color: var(--tarry-blue); opacity: 0.4; line-height: 1; }
+    .phase .header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+    .phase h3 { font-family: var(--font-cn); font-weight: 700; font-size: 18px; margin: 0; color: var(--tarry-ink); }
+    .phase .dur { font-family: var(--font-mono); font-size: 11.5px; color: var(--tarry-blue); letter-spacing: 0.06em; background: rgba(30,136,229,0.08); padding: 3px 9px; border-radius: 4px; }
+    .phase .goal { font-family: var(--font-sans); font-style: italic; font-size: 12.5px; color: var(--tarry-muted); margin-bottom: 14px; letter-spacing: 0.03em; }
+    .phase ul { padding-left: 18px; margin: 8px 0 4px; }
+    .phase li { font-family: var(--font-cn); font-size: 13.5px; line-height: 1.75; color: #2A3A5C; margin: 4px 0; }
+    .phase li code { font-family: var(--font-mono); font-size: 12.5px; background: var(--tarry-paper); padding: 1px 5px; border-radius: 3px; color: var(--tarry-navy); }
+    .phase li strong { color: var(--tarry-ink); }
+
+    /* Cost grid */
+    .grid { display: grid; gap: 18px; }
+    .grid-2 { grid-template-columns: 1fr 1fr; }
+    .grid-3 { grid-template-columns: repeat(3, 1fr); }
+    .cost-card { background: var(--tarry-white); border: 1px solid var(--tarry-rule); border-radius: 10px; padding: 22px 24px; box-shadow: var(--tarry-shadow); }
+    .cost-card .label { font-size: 10.5px; letter-spacing: 0.2em; font-weight: 700; color: var(--tarry-muted); text-transform: uppercase; }
+    .cost-card .big { font-family: var(--font-sans); font-weight: 800; font-size: 32px; margin: 6px 0 2px; color: var(--tarry-ink); letter-spacing: -0.01em; }
+    .cost-card .unit { font-family: var(--font-sans); font-size: 12px; color: var(--tarry-muted); font-style: italic; margin-bottom: 10px; }
+    .cost-card .desc { font-family: var(--font-cn); font-size: 12.5px; line-height: 1.6; color: #2A3A5C; margin: 0; }
+
+    /* Warning */
+    .warn { border-left: 3px solid var(--tarry-warn); background: rgba(224,106,76,0.06); padding: 14px 20px; margin: 18px 0; border-radius: 0 6px 6px 0; }
+    .warn p { margin: 0; font-family: var(--font-cn); font-size: 13.5px; line-height: 1.7; color: #6B2E1E; }
+    .warn strong { color: #B23A1E; }
+
+    /* Stack diagram */
+    .stack { background: var(--tarry-white); border: 1px solid var(--tarry-rule); border-radius: 10px; overflow: hidden; box-shadow: var(--tarry-shadow); margin: 18px 0; }
+    .stack-row { display: grid; grid-template-columns: 160px 1fr 160px; align-items: center; padding: 14px 22px; border-bottom: 1px solid var(--tarry-rule); }
+    .stack-row:last-child { border-bottom: none; }
+    .stack-row .layer { font-family: var(--font-sans); font-size: 10.5px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--tarry-blue); }
+    .stack-row .tool { font-family: var(--font-cn); font-size: 14.5px; color: var(--tarry-ink); }
+    .stack-row .tool strong { font-weight: 700; }
+    .stack-row .tool code { font-family: var(--font-mono); font-size: 12.5px; background: var(--tarry-paper); padding: 1px 6px; border-radius: 3px; color: var(--tarry-navy); }
+    .stack-row .why { font-family: var(--font-sans); font-style: italic; font-size: 11.5px; color: var(--tarry-muted); text-align: right; letter-spacing: 0.02em; }
+
+    @media (max-width: 820px) {
+      .wrap { padding: 36px 24px; }
+      .grid-3 { grid-template-columns: 1fr 1fr; }
+      .grid-2 { grid-template-columns: 1fr; }
+      .hero h1 { font-size: 32px; }
+      .phase { padding-left: 24px; }
+      .phase::before { position: static; display: block; margin-bottom: 8px; }
+      .stack-row { grid-template-columns: 1fr; gap: 4px; }
+      .stack-row .why { text-align: left; }
+    }
+  </style>
+</head>
+<body class="theme-light tarry-triangle-pattern">
+
+  <div class="wrap">
+
+    <!-- Header -->
+    <div class="header-row">
+      <div class="tarry-lockup">
+        <img src="tarry-logo.png" alt="TarryAI 塔锐信息"/>
+        <div>
+          <div class="wm">TarryAI</div>
+          <div class="cn">塔 锐 信 息</div>
+        </div>
+      </div>
+      <div class="deck-meta">
+        BUILD PLAN<br/>
+        2026 · MAY · v1.0
+      </div>
+    </div>
+
+    <!-- Hero -->
+    <section class="hero">
+      <svg class="ghost-tri" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="ghostG" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%"  stop-color="#5AC8E8"/>
+            <stop offset="50%" stop-color="#1E88E5"/>
+            <stop offset="100%" stop-color="#0D47A1"/>
+          </linearGradient>
+        </defs>
+        <polygon points="100,16 180,176 20,176" fill="url(#ghostG)"/>
+      </svg>
+      <div class="tarry-eyebrow">BUILD PLAN · 自建方案</div>
+      <h1>自建电子税务局发票自动化<br/>从零到生产的开发计划</h1>
+      <hr class="tarry-accent-rule"/>
+      <p class="sub-en">
+        A pragmatic build plan: framework selection, model strategy,<br/>
+        architecture, and a 6-week roadmap to production.
+      </p>
+
+      <!-- TL;DR -->
+      <div class="tldr">
+        <div class="label">TL;DR · 核心建议</div>
+        <h3>不要用 agent framework,用 Playwright 写确定性脚本 + Claude 兜底</h3>
+        <p>
+          这是一个<strong>单一垂直场景</strong>(一个网站 · 一套固定流程 · 已知步骤),
+          不是开放任务。<strong>重型 agent framework(LangGraph / AutoGen / CrewAI)对你是负债不是资产</strong>——
+          它们的价值在"动态规划",但你的流程是确定的。<br/><br/>
+          推荐栈: <code>Playwright (Python) + persistent Chromium profile + Claude Sonnet 4.6 vision 兜底</code>。
+          90% 的步骤用确定性 selector 跑,10% 不稳定的步骤(改版、弹窗、二次扫脸触发)用
+          Claude 的<strong>视觉理解</strong>救场。模型只在<strong>看不懂页面时</strong>调用,
+          不进入主循环,API 成本每月几十块。
+        </p>
+      </div>
+    </section>
+
+    <!-- Section 1 - 框架决策 -->
+    <section class="section">
+      <div class="section-head">
+        <div class="tarry-eyebrow">DECISION 01 · 框架选型</div>
+        <h2>为什么不是 Browser-Use / 不是 LangGraph</h2>
+        <div class="en-sub">Framework selection — why "less is more" for this workload</div>
+      </div>
+
+      <p class="body">
+        市场上能选的工具按"自主性"排成光谱,从纯确定性到纯自主:
+      </p>
+
+      <table class="dt">
+        <thead>
+          <tr>
+            <th style="width:160px;">工具</th>
+            <th style="width:120px;">类型</th>
+            <th>适用场景</th>
+            <th style="width:240px;">对你这个场景</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="pick-row">
+            <td class="tool">Playwright</td>
+            <td>确定性框架</td>
+            <td>已知流程的网页自动化,稳定、快、可调试</td>
+            <td><strong>★ 主推</strong>——流程固定、跑得稳、token 零消耗</td>
+          </tr>
+          <tr>
+            <td class="tool">Computer Use<br/>(Claude SDK)</td>
+            <td>视觉 agent</td>
+            <td>无 selector 可用、桌面 GUI、需要"看图操作"</td>
+            <td>只用作兜底分支,不做主循环</td>
+          </tr>
+          <tr>
+            <td class="tool">Browser-Use</td>
+            <td>LLM agent</td>
+            <td>开放任务("帮我订机票")、跨网站、未知 UI</td>
+            <td>过度——每步都过 LLM,慢且贵</td>
+          </tr>
+          <tr>
+            <td class="tool">Stagehand</td>
+            <td>Playwright + AI 层</td>
+            <td>需要 AI 做元素识别,但仍想要 Playwright 控制力</td>
+            <td>合理备选,但相比纯 Playwright 增加依赖</td>
+          </tr>
+          <tr>
+            <td class="tool">LangGraph<br/>AutoGen / CrewAI</td>
+            <td>Agent 编排</td>
+            <td>多智能体协作、复杂规划、动态分支</td>
+            <td>完全过度——你不需要"智能体辩论"</td>
+          </tr>
+          <tr>
+            <td class="tool">八爪鱼/影刀 RPA</td>
+            <td>低代码 RPA</td>
+            <td>非开发者、Windows 桌面流程</td>
+            <td>不适合——你是开发者,且要跨 macOS</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="rec primary">
+        <span class="verdict-tag tag-pick">★ 主推方案</span>
+        <h3>Playwright + Claude Sonnet 4.6 兜底</h3>
+        <div class="en">Deterministic-first, AI as fallback</div>
+
+        <div class="reasons">
+          <div class="reason"><span class="icon">✓</span><span><strong>流程是确定的。</strong>登录页 → 数字账户 → 全量发票查询 → 勾选 → 下载 → 轮询 ZIP,7 步全部已知。没有"agent 需要思考下一步是什么"。</span></div>
+          <div class="reason"><span class="icon">✓</span><span><strong>Playwright 有 persistent context。</strong>用 <code>launchPersistentContext()</code> 把 cookies/storage 留在磁盘,人登录一次,脚本天天复用 session。</span></div>
+          <div class="reason"><span class="icon">✓</span><span><strong>本地跑、零 API 费(主路径)。</strong>主流程不调 LLM。Claude 只在<strong>选择器失效、弹窗未知</strong>时调用——一个月几块到几十块。</span></div>
+          <div class="reason"><span class="icon">✓</span><span><strong>可调试、可回放。</strong>Playwright trace viewer 可看每一步截图。生产事故复现成本极低。</span></div>
+          <div class="reason"><span class="icon">✓</span><span><strong>跨平台。</strong>macOS / Linux / Windows 一份代码。你 Mac mini + MBP 双机部署没障碍。</span></div>
+          <div class="reason"><span class="icon">✓</span><span><strong>未来可演化。</strong>需要时再叠 agent layer(给客户做产品时再加)。先把核心跑稳。</span></div>
+        </div>
+      </div>
+
+      <div class="rec secondary">
+        <span class="verdict-tag tag-alt">备选 · 适合后期</span>
+        <h3>Stagehand(如果你想全 TS 栈)</h3>
+        <div class="en">Playwright + AI element identification</div>
+        <p class="body" style="margin:6px 0 0;">
+          Stagehand = Playwright 控制层 + LLM 元素识别层。如果你后期发现电子税务局
+          改版太频繁、纯 selector 维护成本高,可以替换底层。它就是
+          <code>page.act("点击批量下载按钮")</code>,LLM 自动找到元素。但<strong>每一个 act 都是一次 LLM 调用</strong>,
+          所以仅用于不稳定的关键 1-2 步。
+        </p>
+      </div>
+    </section>
+
+    <!-- Section 2 - 模型选型 -->
+    <section class="section">
+      <div class="section-head">
+        <div class="tarry-eyebrow">DECISION 02 · 模型选型</div>
+        <h2>用哪个模型,什么时候用</h2>
+        <div class="en-sub">Model selection — when, why, and how often</div>
+      </div>
+
+      <p class="body">
+        模型不应该在主循环里。模型只在两类时刻被调用:
+        <strong>(a)视觉理解</strong>——截图过来,问"批量下载按钮在哪/页面什么状态";
+        <strong>(b)结构化抽取</strong>——HTML 片段过来,问"提取这张表里所有发票号"。
+      </p>
+
+      <div class="grid grid-3">
+        <div class="cost-card">
+          <div class="label">主力 · VISION</div>
+          <div class="big">Sonnet 4.6</div>
+          <div class="unit">$3 / $15 per 1M tokens</div>
+          <p class="desc">
+            OSWorld-Verified <strong>72.5%</strong>——计算机 GUI 操作能力近乎 Opus,价格 1/5。
+            视觉看页面、定位元素、判断状态都靠它。
+            <strong>这是你的默认</strong>。
+          </p>
+        </div>
+        <div class="cost-card">
+          <div class="label">兜底 · 视觉硬骨头</div>
+          <div class="big">Opus 4.7</div>
+          <div class="unit">$15 / $75 per 1M tokens</div>
+          <p class="desc">
+            当 Sonnet 看不准时升一档。例如复杂表单状态判断、罕见弹窗。
+            <strong>仅作为 fallback 链路</strong>的最后一层,触发率应该 &lt; 1%。
+          </p>
+        </div>
+        <div class="cost-card">
+          <div class="label">国内备用 · 合规场景</div>
+          <div class="big">GLM-5.1<br/>or DeepSeek</div>
+          <div class="unit">国内访问稳定</div>
+          <p class="desc">
+            如果客户对"数据出境"敏感(尤其涉税数据),用国内模型替换。
+            视觉能力略弱,但对这种结构化页面够用,
+            你已经在评估 GLM 路线了。
+          </p>
+        </div>
+      </div>
+
+      <div class="callout">
+        <p>
+          <strong>不要用的:</strong>GPT-5.5 在 agent 上分数高,但<strong>价格贵 67%</strong>且这个场景里
+          它的优势(深度推理、长链规划)用不上。你买的是"看图说话"和"识表单",Sonnet 是甜蜜点。
+          GPT-5.5 留给 OpenClaw 的 Hermes/小诸葛 那种复杂规划场景。
+        </p>
+      </div>
+
+      <p class="body" style="margin-top:18px;">
+        <strong>调用频率估算</strong>(单次"拉一个客户一个月的发票"任务):
+      </p>
+
+      <table class="dt">
+        <thead>
+          <tr>
+            <th style="width:280px;">触发条件</th>
+            <th style="width:100px;">频率</th>
+            <th style="width:140px;">输入 tokens</th>
+            <th style="width:140px;">输出 tokens</th>
+            <th>说明</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>主路径 selector 命中</td>
+            <td>~95%</td>
+            <td>0</td>
+            <td>0</td>
+            <td>纯 Playwright 跑,不调模型</td>
+          </tr>
+          <tr>
+            <td>selector 失败 → 截图问 LLM</td>
+            <td>~4%</td>
+            <td>~2K(截图)</td>
+            <td>~200</td>
+            <td>Sonnet 视觉定位元素</td>
+          </tr>
+          <tr>
+            <td>未知弹窗 / 二次扫脸</td>
+            <td>~1%</td>
+            <td>~2K</td>
+            <td>~100</td>
+            <td>判断 "是否需要人工接管"</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p class="body">
+        按月 30 次任务、每任务 ~15 步、约 4% 触发 LLM 估算:
+        <strong>月 API 费用大约 ¥5–30</strong>。模型不是成本中心。
+      </p>
+    </section>
+
+    <!-- Section 3 - 推荐技术栈 -->
+    <section class="section">
+      <div class="section-head">
+        <div class="tarry-eyebrow">DECISION 03 · 技术栈</div>
+        <h2>完整推荐技术栈</h2>
+        <div class="en-sub">The complete recommended stack, layer by layer</div>
+      </div>
+
+      <div class="stack">
+        <div class="stack-row">
+          <div class="layer">LANGUAGE</div>
+          <div class="tool"><strong>Python 3.11+</strong>(优先)/ TypeScript 备选</div>
+          <div class="why">Python 生态成熟、Playwright 一等公民</div>
+        </div>
+        <div class="stack-row">
+          <div class="layer">BROWSER</div>
+          <div class="tool"><strong>Playwright</strong> · <code>playwright[chromium]==1.49+</code></div>
+          <div class="why">persistent context、trace viewer 决定性优势</div>
+        </div>
+        <div class="stack-row">
+          <div class="layer">SESSION 持久化</div>
+          <div class="tool"><strong>launchPersistentContext()</strong> + 本地 user data 目录</div>
+          <div class="why">人登录一次,脚本反复用</div>
+        </div>
+        <div class="stack-row">
+          <div class="layer">LLM SDK</div>
+          <div class="tool"><strong>anthropic Python SDK</strong> · 模型 <code>claude-sonnet-4-6</code></div>
+          <div class="why">仅 fallback 调用,不进主循环</div>
+        </div>
+        <div class="stack-row">
+          <div class="layer">任务编排</div>
+          <div class="tool"><strong>简单 async/await + 状态机</strong>(不用 Celery、不用 Airflow)</div>
+          <div class="why">任务量小,过度工程化反而难维护</div>
+        </div>
+        <div class="stack-row">
+          <div class="layer">调度</div>
+          <div class="tool"><strong>cron / launchd</strong>(macOS)或 <strong>APScheduler</strong></div>
+          <div class="why">每天定时跑一次,不需要分布式</div>
+        </div>
+        <div class="stack-row">
+          <div class="layer">人工触达</div>
+          <div class="tool"><strong>飞书机器人 webhook</strong> + Mac 系统通知</div>
+          <div class="why">需要二次扫脸时 ping 你</div>
+        </div>
+        <div class="stack-row">
+          <div class="layer">数据落地</div>
+          <div class="tool"><strong>本地文件系统</strong> + SQLite 元数据(发票号、客户、日期)</div>
+          <div class="why">不要一上来就 PostgreSQL,先跑通</div>
+        </div>
+        <div class="stack-row">
+          <div class="layer">日志 / 观测</div>
+          <div class="tool"><strong>loguru</strong> + Playwright trace + 截图归档</div>
+          <div class="why">事故复现关键</div>
+        </div>
+        <div class="stack-row">
+          <div class="layer">部署</div>
+          <div class="tool"><strong>Mac mini</strong>(<code>mac-golden-lerdorf</code>)直接跑 · launchd 守护</div>
+          <div class="why">已经在跑,够用;不需要 K8s</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 4 - 架构 -->
+    <section class="section">
+      <div class="section-head">
+        <div class="tarry-eyebrow">ARCHITECTURE · 系统架构</div>
+        <h2>系统架构图</h2>
+        <div class="en-sub">How the pieces fit together</div>
+      </div>
+
+      <div class="arch">
+        <div class="arch-layer" style="border-left-color:#D45047;">
+          <div class="name">① 人工登录入口(每天/每会话一次)</div>
+          <div class="en">Human session bootstrap</div>
+          <div class="desc">
+            打开 <code>scripts/login.py</code> → Playwright 以 <strong>headed</strong> 模式
+            启动 Chromium,用户在 GUI 完成账号密码 + 短信/扫脸 → 脚本检测到登录成功 → 保存 cookies 到 <code>./session/{企业税号}/</code> → 退出。
+            <strong>之后所有任务都用这个 session</strong>,直到过期。
+          </div>
+        </div>
+        <div class="arch-arrow">▼</div>
+        <div class="arch-layer" style="border-left-color:#E0A030;">
+          <div class="name">② 任务调度层</div>
+          <div class="en">Scheduler</div>
+          <div class="desc">
+            <code>launchd</code> 每天 18:00 触发 → 读 SQLite 任务表 → 派发到 worker。
+            支持手动 trigger(命令行 / 飞书指令)。无任务时不消耗资源。
+          </div>
+        </div>
+        <div class="arch-arrow">▼</div>
+        <div class="arch-layer" style="border-left-color:#1E88E5;">
+          <div class="name">③ Worker · 确定性主循环</div>
+          <div class="en">Deterministic core (Playwright)</div>
+          <div class="desc">
+            按 selector 走 7 步:导航 → 查询 → 勾选 → 批量下载 → 轮询 → 解压 → 归档。
+            每一步包<strong>状态校验</strong>(<code>expect()</code>),失败立即抛出,不"乐观推进"。
+          </div>
+        </div>
+        <div class="arch-arrow">▼</div>
+        <div class="arch-layer" style="border-left-color:#5AC8E8;">
+          <div class="name">④ Vision Fallback(被动触发)</div>
+          <div class="en">Visual fallback layer</div>
+          <div class="desc">
+            主循环里某一步失败 → 截图发给 Sonnet 4.6 + 该步骤的"语义描述"
+            (例如"找到'批量下载'按钮并点击")→ 模型返回坐标或新 selector →
+            主循环用 fallback 重试。3 次仍失败 → 升级到人工。
+          </div>
+        </div>
+        <div class="arch-arrow">▼</div>
+        <div class="arch-layer" style="border-left-color:#2BA672;">
+          <div class="name">⑤ 输出 · 归档 · 通知</div>
+          <div class="en">Output, archival, notification</div>
+          <div class="desc">
+            ZIP 解压 → 按客户/月份归到 <code>~/OpenClaw-Output/invoices/{客户}/{YYYY-MM}/</code> →
+            元数据写 SQLite → 飞书 webhook 发"今天拉到 38 张发票,合计 ¥XX,XXX"。
+            异常 → 高亮颜色告警,带截图链接。
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 5 - 代码骨架 -->
+    <section class="section">
+      <div class="section-head">
+        <div class="tarry-eyebrow">CODE · 关键代码骨架</div>
+        <h2>骨架代码 · 三个核心文件</h2>
+        <div class="en-sub">The three files that define the system</div>
+      </div>
+
+      <p class="body"><strong>1. </strong><code>session.py</code> · 持久化登录 session</p>
+<pre class="code"><span class="c"># scripts/session.py — 人工登录一次,保存 session 到磁盘</span>
+<span class="k">from</span> playwright.sync_api <span class="k">import</span> sync_playwright
+<span class="k">from</span> pathlib <span class="k">import</span> Path
+
+<span class="k">def</span> <span class="f">login_interactive</span>(tax_id: <span class="k">str</span>):
+    user_data_dir = Path(<span class="s">f"./session/{tax_id}"</span>)
+    user_data_dir.mkdir(parents=<span class="k">True</span>, exist_ok=<span class="k">True</span>)
+
+    <span class="k">with</span> sync_playwright() <span class="k">as</span> p:
+        ctx = p.chromium.launch_persistent_context(
+            user_data_dir=<span class="k">str</span>(user_data_dir),
+            headless=<span class="k">False</span>,           <span class="c"># 让人能看到、能操作</span>
+            viewport={<span class="s">"width"</span>: <span class="s">1440</span>, <span class="s">"height"</span>: <span class="s">900</span>},
+        )
+        page = ctx.new_page()
+        page.goto(<span class="s">"https://tpass.shanghai.chinatax.gov.cn:8443/"</span>)
+        <span class="c"># 等待用户完成登录(检测跳转到主控台 URL)</span>
+        page.wait_for_url(<span class="s">"**/etax.shanghai.chinatax.gov.cn/**"</span>, timeout=<span class="s">300_000</span>)
+        <span class="k">print</span>(<span class="s">"✓ 登录成功,session 已保存"</span>)
+        ctx.close()</pre>
+
+      <p class="body" style="margin-top:24px;"><strong>2. </strong><code>fetch_invoices.py</code> · 主流程(简化版)</p>
+<pre class="code"><span class="c"># scripts/fetch_invoices.py — 自动跑 7 步</span>
+<span class="k">from</span> playwright.sync_api <span class="k">import</span> sync_playwright, expect
+<span class="k">from</span> .vision_fallback <span class="k">import</span> resolve_with_claude
+
+<span class="k">def</span> <span class="f">fetch</span>(tax_id, date_from, date_to):
+    <span class="k">with</span> sync_playwright() <span class="k">as</span> p:
+        ctx = p.chromium.launch_persistent_context(
+            user_data_dir=<span class="s">f"./session/{tax_id}"</span>,
+            headless=<span class="k">False</span>,    <span class="c"># 保持 headed,免触发风控</span>
+            accept_downloads=<span class="k">True</span>,
+        )
+        page = ctx.new_page()
+        page.goto(<span class="s">"https://etax.shanghai.chinatax.gov.cn/..."</span>)
+
+        <span class="c"># 检测 session 是否还活着</span>
+        <span class="k">if</span> page.url.startswith(<span class="s">"https://tpass."</span>):
+            <span class="k">raise</span> SessionExpired(<span class="s">"需要重新登录"</span>)
+
+        <span class="c"># 步骤 1: 导航到全量发票查询</span>
+        page.click(<span class="s">"text=我要办税"</span>)
+        page.click(<span class="s">"text=税务数字账户"</span>)
+        <span class="c"># ... 继续到全量发票查询页</span>
+
+        <span class="c"># 步骤 2: 填查询条件</span>
+        page.fill(<span class="s">"input[placeholder*='开票日期(起)']"</span>, date_from)
+        page.fill(<span class="s">"input[placeholder*='开票日期(止)']"</span>, date_to)
+        page.click(<span class="s">"button:has-text('查询')"</span>)
+
+        <span class="c"># 步骤 3: 全选 + 批量下载(关键步骤,加 try-catch + vision fallback)</span>
+        <span class="k">try</span>:
+            page.click(<span class="s">"th input[type=checkbox]"</span>)
+            page.click(<span class="s">"button:has-text('下载')"</span>)
+        <span class="k">except</span> Exception:
+            <span class="c"># selector 失效 → 截图问 Claude</span>
+            action = resolve_with_claude(page, <span class="s">"点击批量下载按钮"</span>)
+            action.execute(page)
+
+        <span class="c"># 步骤 4: 选格式</span>
+        page.click(<span class="s">"label:has-text('OFD')"</span>)
+        page.click(<span class="s">"button:has-text('确认')"</span>)
+
+        <span class="c"># 步骤 5: 检测是否触发二次扫脸</span>
+        <span class="k">if</span> page.locator(<span class="s">"text=扫脸认证"</span>).is_visible(timeout=<span class="s">3000</span>):
+            notify_feishu(<span class="s">f"⚠ {tax_id} 触发二次扫脸,请手动完成"</span>)
+            page.wait_for_selector(<span class="s">"text=扫脸认证"</span>, state=<span class="s">"hidden"</span>, timeout=<span class="s">180_000</span>)
+
+        <span class="c"># 步骤 6: 轮询 ZIP</span>
+        zip_path = poll_export_progress(page, ctx, timeout=<span class="s">600</span>)
+        ctx.close()
+        <span class="k">return</span> zip_path</pre>
+
+      <p class="body" style="margin-top:24px;"><strong>3. </strong><code>vision_fallback.py</code> · 模型兜底</p>
+<pre class="code"><span class="c"># scripts/vision_fallback.py — 视觉兜底,仅在 selector 失败时调用</span>
+<span class="k">import</span> base64, anthropic
+<span class="k">from</span> playwright.sync_api <span class="k">import</span> Page
+
+client = anthropic.Anthropic()
+
+<span class="k">def</span> <span class="f">resolve_with_claude</span>(page: Page, intent: <span class="k">str</span>) -&gt; Action:
+    screenshot = page.screenshot()
+    img_b64 = base64.b64encode(screenshot).decode()
+
+    msg = client.messages.create(
+        model=<span class="s">"claude-sonnet-4-6"</span>,
+        max_tokens=<span class="s">300</span>,
+        messages=[{
+            <span class="s">"role"</span>: <span class="s">"user"</span>,
+            <span class="s">"content"</span>: [
+                {<span class="s">"type"</span>: <span class="s">"image"</span>, <span class="s">"source"</span>: {
+                    <span class="s">"type"</span>: <span class="s">"base64"</span>, <span class="s">"media_type"</span>: <span class="s">"image/png"</span>, <span class="s">"data"</span>: img_b64
+                }},
+                {<span class="s">"type"</span>: <span class="s">"text"</span>, <span class="s">"text"</span>: <span class="k">f</span><span class="s">"""</span>
+<span class="s">页面截图如上。我要完成动作: {intent}。</span>
+<span class="s">请返回 JSON: {{"action": "click"|"fill", "selector": "...", "value"?: "..."}}</span>
+<span class="s">selector 优先用 text=... / role=... 这种语义化形式。</span>
+<span class="s">"""</span>}
+            ]
+        }]
+    )
+    <span class="k">return</span> Action.parse(msg.content[<span class="s">0</span>].text)</pre>
+
+      <div class="callout">
+        <p>
+          <strong>为什么不用 Computer Use API?</strong>它会让 Claude 直接控制鼠标点坐标,
+          但坐标比 selector 更脆弱。<strong>让 Claude 返回"语义化 selector",由 Playwright 执行</strong>——
+          这样兜底也是"软"的,失败仍可降级。
+        </p>
+      </div>
+    </section>
+
+    <!-- Section 6 - 路线图 -->
+    <section class="section">
+      <div class="section-head">
+        <div class="tarry-eyebrow">ROADMAP · 实施路线图</div>
+        <h2>6 周到生产</h2>
+        <div class="en-sub">Six weeks, week by week</div>
+      </div>
+
+      <div class="phases">
+
+        <div class="phase">
+          <div class="header">
+            <h3>探索 · 摸清 DOM 结构</h3>
+            <span class="dur">Week 1 · 5–10h</span>
+          </div>
+          <div class="goal">Recon — map the surface area before writing code</div>
+          <ul>
+            <li>用塔锐自家税号手动登录,<strong>用 Chrome DevTools 把 7 步全部录下来</strong>(每步截图 + DOM 片段 + selector 候选)</li>
+            <li>记录哪些 selector 是稳定的(<code>id</code>、<code>name</code>、<code>aria-label</code>)、哪些是脆弱的(<code>.el-button--xxxx</code> Element UI 自动生成 class)</li>
+            <li>测试 session 寿命:登录后几小时失效?哪些操作触发二次扫脸?</li>
+            <li><strong>交付物:</strong>一份 <code>flow.md</code> 文档,7 个步骤每步配 selector 候选 + 截图</li>
+          </ul>
+        </div>
+
+        <div class="phase">
+          <div class="header">
+            <h3>骨架 · session.py + 查询路径</h3>
+            <span class="dur">Week 2 · 8–15h</span>
+          </div>
+          <div class="goal">Build the bones — login + navigation only</div>
+          <ul>
+            <li>实现 <code>login_interactive()</code>,人工完成登录后能复用 session</li>
+            <li>实现"导航到全量发票查询页"——不下载,只走通路径</li>
+            <li>填查询条件、点查询、能看到结果列表</li>
+            <li><strong>交付物:</strong>能跑 <code>python -m fetch list --from 2026-04-01 --to 2026-04-30</code>,在 stdout 打印发票数</li>
+          </ul>
+        </div>
+
+        <div class="phase">
+          <div class="header">
+            <h3>下载 · 闭环到 ZIP</h3>
+            <span class="dur">Week 3 · 10–15h</span>
+          </div>
+          <div class="goal">Close the loop — actually download files</div>
+          <ul>
+            <li>实现批量勾选 + "批量下载"按钮点击</li>
+            <li>实现"批量导入导出进度查询"轮询,等 ZIP 生成</li>
+            <li>Playwright 监听 <code>download</code> 事件,落盘到 <code>~/OpenClaw-Output/invoices/...</code></li>
+            <li>解压 ZIP,确认 OFD/PDF 完整性</li>
+            <li><strong>交付物:</strong>第一份真实数据 ZIP 落到本地</li>
+          </ul>
+        </div>
+
+        <div class="phase">
+          <div class="header">
+            <h3>韧性 · 兜底 + 监控</h3>
+            <span class="dur">Week 4 · 8–12h</span>
+          </div>
+          <div class="goal">Make it robust — failures don't kill the run</div>
+          <ul>
+            <li>实现 <code>vision_fallback.py</code>——任何 selector 失败先截图问 Sonnet 4.6</li>
+            <li>实现"二次扫脸检测",触发后飞书通知 + 暂停等人</li>
+            <li>接入 loguru 全链路日志 + Playwright trace 自动保存</li>
+            <li>处理边界:session 过期、查询为空、ZIP 超大被拆包、网络中断</li>
+            <li><strong>交付物:</strong>连跑 10 次,成功率 ≥ 9/10</li>
+          </ul>
+        </div>
+
+        <div class="phase">
+          <div class="header">
+            <h3>多客户 · 元数据管理</h3>
+            <span class="dur">Week 5 · 6–10h</span>
+          </div>
+          <div class="goal">Scale to multi-tenant</div>
+          <ul>
+            <li>SQLite schema:<code>customers(tax_id, alias, last_session_at)</code> + <code>invoices(id, tax_id, code, amount, date, path)</code></li>
+            <li>每个客户独立的 <code>./session/{tax_id}/</code> 目录</li>
+            <li>CLI:<code>fetch run --customer all --month 2026-04</code></li>
+            <li>飞书 webhook:汇总报告"本次共拉到 X 家 Y 张发票"</li>
+            <li><strong>交付物:</strong>一次性跑 3 个不同客户(用你的、悦舍餐饮的、另一家测试号)</li>
+          </ul>
+        </div>
+
+        <div class="phase">
+          <div class="header">
+            <h3>调度 · 上生产</h3>
+            <span class="dur">Week 6 · 4–8h</span>
+          </div>
+          <div class="goal">Production deployment</div>
+          <ul>
+            <li>launchd plist 配置每天 18:00 触发(避开高峰)</li>
+            <li>异常 → 飞书 @你 高亮通知</li>
+            <li>session 失效预警(检测到 redirect 到登录页时,提前 30 分钟提醒续登)</li>
+            <li>写 <code>RUNBOOK.md</code>:停机怎么办、改版怎么办、新客户怎么加</li>
+            <li><strong>交付物:</strong>连续 7 天无人值守跑通(允许中间 1 次需要扫脸介入)</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="warn">
+        <p>
+          <strong>真正的难点不是写代码,是和税务局赛跑。</strong>电子税务局每隔几个月会发版,
+          selector 改、流程改、风控规则改。<strong>Week 4 的 vision fallback 才是这个项目的真价值</strong>——
+          它让你的代码在 UI 改版时不至于第二天就废。这部分时间投入要给够。
+        </p>
+      </div>
+    </section>
+
+    <!-- Section 7 - 成本 -->
+    <section class="section">
+      <div class="section-head">
+        <div class="tarry-eyebrow">COST · 总成本</div>
+        <h2>总开发与运行成本</h2>
+        <div class="en-sub">Build cost + run cost, honest numbers</div>
+      </div>
+
+      <div class="grid grid-2">
+        <div class="cost-card">
+          <div class="label">开发成本 · ONE-TIME</div>
+          <div class="big">~50 小时</div>
+          <div class="unit">~6 weeks of part-time</div>
+          <p class="desc">
+            按你每周投入 8–10 小时计,6 周搞定。
+            如果集中干,2 周也能出 v1。<strong>瓶颈是和真实税务系统对接</strong>,
+            不是 coding,所以并不是越拼命越快。
+          </p>
+        </div>
+        <div class="cost-card">
+          <div class="label">月运行成本 · RECURRING</div>
+          <div class="big">¥10–50/月</div>
+          <div class="unit">per active customer</div>
+          <p class="desc">
+            Claude API 兜底调用约 ¥5–30。
+            Mac mini 已经在跑(电费忽略)。
+            不需要服务器、不需要数据库托管、不需要消息队列。
+          </p>
+        </div>
+      </div>
+
+      <div class="grid grid-3" style="margin-top:18px;">
+        <div class="cost-card">
+          <div class="label">人工成本</div>
+          <div class="big">~30s / 天</div>
+          <div class="unit">扫码登录</div>
+          <p class="desc">session 失效时再登一次。二次扫脸触发时再扫一次。</p>
+        </div>
+        <div class="cost-card">
+          <div class="label">维护成本</div>
+          <div class="big">~2h / 月</div>
+          <div class="unit">页面改版应对</div>
+          <p class="desc">vision fallback 能扛大部分。真正大改版 1-2 小时修一次。</p>
+        </div>
+        <div class="cost-card">
+          <div class="label">替代方案对比</div>
+          <div class="big">¥3K+/月</div>
+          <div class="unit">如果买 SaaS</div>
+          <p class="desc">企享云、慧算账类产品按发票数收费,3 家客户即可回本。</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 8 - 关键风险与规避 -->
+    <section class="section">
+      <div class="section-head">
+        <div class="tarry-eyebrow">PITFALLS · 关键避坑</div>
+        <h2>5 个新手坑</h2>
+        <div class="en-sub">Five mistakes that will cost you a week each</div>
+      </div>
+
+      <p class="body">
+        <strong>① 不要用 headless 模式。</strong>政务系统的反爬有时会检测 headless browser
+        (<code>navigator.webdriver</code>、缺失插件等)。<strong>用 headed + persistent context</strong>,
+        看起来就是真人在用 Chromium。Mac mini 上可以"窗口最小化但不 headless"。
+      </p>
+
+      <p class="body">
+        <strong>② 不要在登录页做任何自动化。</strong>登录交给真人。脚本只在登录后接管。
+        这是合规边界,也是技术边界(扫脸/短信本来就过不去)。
+      </p>
+
+      <p class="body">
+        <strong>③ 不要相信"刚加载完"。</strong>电子税务局是 SPA,大量 AJAX。
+        每个交互后用 <code>page.wait_for_load_state("networkidle")</code> 或者更好的
+        <code>expect(locator).to_be_visible()</code>,不要 <code>time.sleep(2)</code>。
+      </p>
+
+      <p class="body">
+        <strong>④ 不要把 session 目录提交到 Git。</strong>cookies 里有完整的 access token,
+        泄露 = 别人能用你的身份办税。<code>.gitignore</code> 加 <code>session/</code>,
+        而且本地目录要 <code>chmod 700</code>。你之前有过凭证泄露经历,这一条尤其重视。
+      </p>
+
+      <p class="body">
+        <strong>⑤ 不要一上来做"多线程并发"。</strong>电子税务局一个账号同时多会话会被风控
+        踢下线。<strong>每个税号串行跑</strong>。不同税号可以并行,但每个 Mac 进程独立、独立 Chromium 实例。
+      </p>
+    </section>
+
+    <!-- Section 9 - 我的建议 -->
+    <section class="section">
+      <div class="section-head">
+        <div class="tarry-eyebrow">RECOMMENDATION · 我的建议</div>
+        <h2>对你这个具体场景的判断</h2>
+        <div class="en-sub">My take, given your background</div>
+      </div>
+
+      <p class="body">
+        基于你已有的背景——Python/Node 都熟、Mac mini 已部署、有 ESP32 / OAK-D 这种自己造轮子的偏好、
+        而且这套东西大概率最终会变成给 Accenture/Publicis SSC 客户的咨询交付物:
+      </p>
+
+      <p class="body" style="background:rgba(43,166,114,0.05); border-left:3px solid #2BA672; padding:14px 20px; border-radius:0 6px 6px 0; margin:20px 0;">
+        <strong>我的建议是不要走 agent framework 这条路。</strong>
+        Browser-Use / LangGraph 看起来"先进",但对一个<strong>单一已知流程</strong>的任务,
+        它们是反生产力的——每次跑都过 LLM,慢、贵、不可调试。<br/><br/>
+
+        <strong>Playwright + 极薄的 Claude vision 兜底</strong>,代码不超过 600 行,
+        6 周可上生产。<strong>这个东西的真正价值不在"用了什么 framework",而在</strong>
+        <em>"7 步流程的每一步都被你 selector + vision 双重锁定"</em>。
+        这是你的护城河,不是 framework 选型。<br/><br/>
+
+        如果未来要演化成<strong>产品给客户用</strong>,在这套核心之上再叠一层"任务编排 + 多租户管理 + Web UI",
+        那时候<strong>再考虑要不要引入 LangGraph 之类</strong>——但记住,业务逻辑还是那 600 行 Playwright,
+        不要重写。
+      </p>
+
+      <p class="body">
+        最后,这个项目还有一个隐藏价值:<strong>它是你的"AI Agent 工程化"咨询包的活案例</strong>。
+        给 Accenture 讲"会用→会做→会造"时,这就是一个具体的"会造"案例。
+        所以把<strong>开发日记 + 踩坑记录</strong>留下来,以后是高价值素材。
+      </p>
+    </section>
+
+    <!-- Footer -->
+    <footer class="tarry-footer" style="margin-top:64px;">
+      <span>TarryAI · 让信息更锐利 · Build Plan Series</span>
+      <span class="page-num">2026-05-26 · v1.0</span>
+    </footer>
+
+  </div>
+
+</body>
+</html>

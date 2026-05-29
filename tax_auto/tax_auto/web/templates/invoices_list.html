@@ -1,0 +1,282 @@
+{% extends "base.html" %}
+
+{% block title %}发票列表 · 发票仓库{% endblock %}
+
+{# 列表页:main 不滚,内部 flex 列布局,表格内自滚 #}
+{% block main_class %}overflow-hidden{% endblock %}
+
+{% block content %}
+<div id="page-body" class="h-full flex flex-col">
+<h1 class="text-2xl font-bold mb-4 flex-shrink-0">📑 发票列表</h1>
+
+<div class="grid grid-cols-12 gap-4 flex-1 min-h-0">
+
+  <!-- ========== 左侧筛选 (lg 下自滚,sidebar 不带动整个页面) ========== -->
+  <aside class="col-span-12 lg:col-span-3 lg:h-full lg:overflow-auto">
+    <form
+      method="get"
+      action="/invoices"
+      hx-get="/invoices"
+      hx-target="#page-body"
+      hx-select="#page-body"
+      hx-swap="outerHTML"
+      hx-push-url="true"
+      hx-trigger="change delay:200ms, keyup changed delay:500ms from:input[type='text'], keyup changed delay:500ms from:input[type='number']"
+      hx-indicator="#filter-loading"
+      class="bg-white rounded-lg shadow p-4 border border-slate-200 text-sm space-y-3"
+    >
+
+      <div class="flex items-center justify-between">
+        <span class="text-xs text-slate-500">条件改动后自动应用</span>
+        <span id="filter-loading" class="htmx-indicator text-xs text-blue-500">⟳ 加载…</span>
+      </div>
+
+      <div>
+        <label class="block text-xs font-medium text-slate-600 mb-1">我方税号</label>
+        <div class="space-y-1 max-h-32 overflow-y-auto">
+        {% for c in self_companies %}
+          <label class="flex items-center gap-2 text-xs">
+            <input type="checkbox" name="tax_no" value="{{ c.tax_no }}"
+                   {% if c.tax_no in current.tax_no %}checked{% endif %}>
+            <span>{{ c.alias or c.name or c.tax_no }}</span>
+          </label>
+        {% endfor %}
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-medium text-slate-600 mb-1">进/销项</label>
+        <select name="data_type" class="w-full border border-slate-300 rounded px-2 py-1.5">
+          <option value="">不限</option>
+          <option value="1" {% if current.data_type == "1" %}selected{% endif %}>进项</option>
+          <option value="2" {% if current.data_type == "2" %}selected{% endif %}>销项</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="block text-xs font-medium text-slate-600 mb-1">开票日期</label>
+        <div class="flex gap-1">
+          <input type="date" name="kprq_from" value="{{ current.kprq_from }}"
+                 class="w-1/2 border border-slate-300 rounded px-2 py-1.5 text-xs">
+          <input type="date" name="kprq_to" value="{{ current.kprq_to }}"
+                 class="w-1/2 border border-slate-300 rounded px-2 py-1.5 text-xs">
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-medium text-slate-600 mb-1">发票品种</label>
+        <div class="space-y-1 max-h-28 overflow-y-auto border border-slate-200 rounded px-2 py-1 bg-slate-50">
+        {% for v in fppz_options %}
+          <label class="flex items-center gap-2 text-xs">
+            <input type="checkbox" name="fppz" value="{{ v }}"
+                   {% if v in current.fppz %}checked{% endif %}>
+            <span>{{ v }}</span>
+          </label>
+        {% endfor %}
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-medium text-slate-600 mb-1">发票状态</label>
+        <div class="space-y-1 max-h-24 overflow-y-auto border border-slate-200 rounded px-2 py-1 bg-slate-50">
+        {% for v in fpzt_options %}
+          <label class="flex items-center gap-2 text-xs">
+            <input type="checkbox" name="fpzt" value="{{ v }}"
+                   {% if v in current.fpzt %}checked{% endif %}>
+            <span>{{ v }}</span>
+          </label>
+        {% endfor %}
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-medium text-slate-600 mb-1">对手方(销/购方)名称或税号</label>
+        <input type="text" name="xfsbh" value="{{ current.xfsbh }}" placeholder="模糊搜索"
+               class="w-full border border-slate-300 rounded px-2 py-1.5 text-xs">
+      </div>
+
+      <div>
+        <label class="block text-xs font-medium text-slate-600 mb-1">价税合计区间</label>
+        <div class="flex gap-1 items-center text-xs">
+          <input type="number" step="0.01" name="jshj_min" value="{{ current.jshj_min }}"
+                 placeholder="最低" class="w-1/2 border border-slate-300 rounded px-2 py-1.5">
+          <span class="text-slate-400">~</span>
+          <input type="number" step="0.01" name="jshj_max" value="{{ current.jshj_max }}"
+                 placeholder="最高" class="w-1/2 border border-slate-300 rounded px-2 py-1.5">
+        </div>
+      </div>
+
+      {% if tdywlx_options %}
+      <div>
+        <label class="block text-xs font-medium text-slate-600 mb-1">特定业务类型</label>
+        <div class="space-y-1 max-h-24 overflow-y-auto border border-slate-200 rounded px-2 py-1 bg-slate-50">
+        {% for v in tdywlx_options %}
+          <label class="flex items-center gap-2 text-xs">
+            <input type="checkbox" name="tdywlx" value="{{ v }}"
+                   {% if v in current.tdywlx %}checked{% endif %}>
+            <span>{{ v }}</span>
+          </label>
+        {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      <div>
+        <label class="block text-xs font-medium text-slate-600 mb-1">勾选状态 (仅进项)</label>
+        <div class="space-y-1 border border-slate-200 rounded px-2 py-1 bg-slate-50">
+          <label class="flex items-center gap-2 text-xs">
+            <input type="checkbox" name="deductible" value="0"
+                   {% if "0" in current.deductible %}checked{% endif %}>
+            <span>0 未勾选</span>
+          </label>
+          <label class="flex items-center gap-2 text-xs">
+            <input type="checkbox" name="deductible" value="1"
+                   {% if "1" in current.deductible %}checked{% endif %}>
+            <span>1 已勾选</span>
+          </label>
+          <label class="flex items-center gap-2 text-xs">
+            <input type="checkbox" name="deductible" value="2"
+                   {% if "2" in current.deductible %}checked{% endif %}>
+            <span>2 不勾选</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="pt-2">
+        <a href="/invoices"
+           class="block text-center border border-slate-300 hover:bg-slate-50 rounded px-3 py-2 text-xs text-slate-600">
+          清空所有筛选
+        </a>
+      </div>
+
+      <input type="hidden" name="sort" value="{{ sort }}">
+      <input type="hidden" name="page_size" value="{{ page_size }}">
+    </form>
+  </aside>
+
+  <!-- ========== 右侧表格 ========== -->
+  <!-- 大屏:section 撑满 grid 行高,内部 chips+汇总(固定顶) → 表格(flex-1 内滚) → 分页(固定底) -->
+  <section class="col-span-12 lg:col-span-9 flex flex-col lg:h-full min-h-0 gap-3">
+
+    <!-- 顶部 chips + 汇总条 (在 section 顶部,固定不滚) -->
+    <div class="space-y-3 flex-shrink-0">
+
+    <!-- 激活筛选 chips -->
+    {% if chips %}
+    <div class="bg-white rounded-lg shadow border border-slate-200 px-4 py-3 flex items-center gap-2 flex-wrap text-xs">
+      <span class="text-slate-500 mr-1">已应用筛选:</span>
+      {% for chip in chips %}
+        <a href="{{ chip.remove_url }}"
+           hx-get="{{ chip.remove_url }}"
+           hx-target="#page-body" hx-select="#page-body" hx-swap="outerHTML" hx-push-url="true"
+           class="inline-flex items-center gap-1.5 bg-blue-50 hover:bg-rose-50 text-blue-700 hover:text-rose-700 border border-blue-200 hover:border-rose-300 rounded-full px-3 py-1 transition group">
+          <span class="text-slate-500">{{ chip.label }}:</span>
+          <strong>{{ chip.text }}</strong>
+          <span class="ml-0.5 text-blue-400 group-hover:text-rose-600 font-bold">×</span>
+        </a>
+      {% endfor %}
+      <a href="/invoices"
+         hx-get="/invoices" hx-target="#page-body" hx-select="#page-body" hx-swap="outerHTML" hx-push-url="true"
+         class="ml-auto text-slate-500 hover:text-rose-700 hover:underline">清空全部</a>
+    </div>
+    {% endif %}
+
+    <!-- 汇总条 -->
+    <div class="bg-white rounded-lg shadow border border-slate-200 p-4 flex items-center gap-6 text-sm">
+      <div>
+        <span class="text-slate-500">筛选结果:</span>
+        <span class="font-semibold num">{{ total_count }}</span> 张
+      </div>
+      <div>
+        <span class="text-slate-500">价税合计:</span>
+        <span class="font-semibold num">¥{{ "{:,.2f}".format(sum_jshj) }}</span>
+      </div>
+      <div>
+        <span class="text-slate-500">税额合计:</span>
+        <span class="font-semibold num">¥{{ "{:,.2f}".format(sum_se) }}</span>
+      </div>
+      <span class="flex-1"></span>
+      <a href="/invoices/export.csv?{{ qs_base }}"
+         class="text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded px-3 py-2">⬇️ 导出 CSV</a>
+    </div>
+
+    </div>{# /chips+summary top block #}
+
+    <!-- 表格: flex-1 占满剩余空间,内部独立滚动 -->
+    <div class="bg-white rounded-lg shadow border border-slate-200 overflow-auto flex-1 min-h-0">
+      <table class="w-full text-xs">
+        <thead class="bg-slate-50 text-slate-600 border-b border-slate-200 sticky top-0 z-10">
+          <tr>
+            <th class="text-left py-2 px-2 whitespace-nowrap">开票日期</th>
+            <th class="text-left py-2 px-2 whitespace-nowrap">数电号码</th>
+            <th class="text-left py-2 px-2">销方</th>
+            <th class="text-left py-2 px-2">购方</th>
+            <th class="text-left py-2 px-2 whitespace-nowrap">品种</th>
+            <th class="text-center py-2 px-2 whitespace-nowrap">状态</th>
+            <th class="text-right py-2 px-2 whitespace-nowrap">价税合计</th>
+            <th class="text-right py-2 px-2 whitespace-nowrap">税额</th>
+            <th class="text-center py-2 px-1 w-10"></th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for inv in invoices %}
+          <tr class="border-b border-slate-100 hover:bg-slate-50">
+            <td class="py-2 px-2 whitespace-nowrap text-slate-700">
+              {% if inv.kprq %}
+                <span>{{ inv.kprq.strftime("%m-%d") }}</span>
+                <span class="text-slate-400 text-[10px] ml-0.5">{{ inv.kprq.strftime("%H:%M") }}</span>
+              {% else %}—{% endif %}
+            </td>
+            <td class="py-2 px-2 font-mono text-[10px] text-slate-500 whitespace-nowrap">{{ inv.sdfphm or "—" }}</td>
+            <td class="py-2 px-2 max-w-[14rem] truncate" title="{{ inv.xfmc }}">{{ inv.xfmc or "—" }}</td>
+            <td class="py-2 px-2 max-w-[14rem] truncate" title="{{ inv.gfmc }}">{{ inv.gfmc or "—" }}</td>
+            <td class="py-2 px-2 whitespace-nowrap" title="{{ inv.fppz or '' }}">
+              {% if inv.fppz %}
+                <span class="inline-block bg-slate-100 text-slate-700 rounded px-1.5 py-0.5 text-[10px]">{{ inv.fppz | fppz_short }}</span>
+              {% else %}—{% endif %}
+            </td>
+            <td class="py-2 px-2 whitespace-nowrap text-center">
+              {% if inv.fpzt == "正常" %}
+                <span class="inline-block bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full px-2 py-0.5 text-[10px]">{{ inv.fpzt }}</span>
+              {% elif inv.fpzt %}
+                <span class="inline-block bg-amber-50 text-amber-700 border border-amber-200 rounded-full px-2 py-0.5 text-[10px]">{{ inv.fpzt }}</span>
+              {% else %}—{% endif %}
+            </td>
+            <td class="py-2 px-2 text-right num font-medium whitespace-nowrap">¥{{ "{:,.2f}".format(inv.jshj) if inv.jshj else "—" }}</td>
+            <td class="py-2 px-2 text-right num text-slate-500 whitespace-nowrap">{{ "{:,.2f}".format(inv.se) if inv.se else "—" }}</td>
+            <td class="py-2 px-1 text-center"><a href="/invoices/{{ inv.id }}" class="text-blue-600 hover:underline">›</a></td>
+          </tr>
+        {% else %}
+          <tr><td colspan="9" class="py-12 text-center text-slate-400">无结果</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- 分页 (section flex 底部,不滚动) -->
+    {% if total_pages > 1 %}
+    <div class="flex items-center justify-between text-sm flex-shrink-0 bg-white rounded-lg shadow border border-slate-200 px-4 py-2">
+      <div class="text-slate-500">第 {{ page }} / {{ total_pages }} 页</div>
+      <div class="flex gap-1">
+        {% set start_page = [1, page - 4] | max %}
+        {% set end_page = [total_pages, page + 4] | min %}
+        {% if page > 1 %}
+          <a href="?{{ qs_base }}&page={{ page - 1 }}" class="px-3 py-1 border border-slate-300 rounded hover:bg-slate-50">‹</a>
+        {% endif %}
+        {% for p in range(start_page, end_page + 1) %}
+          {% if p == page %}
+            <span class="px-3 py-1 bg-blue-600 text-white rounded">{{ p }}</span>
+          {% else %}
+            <a href="?{{ qs_base }}&page={{ p }}" class="px-3 py-1 border border-slate-300 rounded hover:bg-slate-50">{{ p }}</a>
+          {% endif %}
+        {% endfor %}
+        {% if page < total_pages %}
+          <a href="?{{ qs_base }}&page={{ page + 1 }}" class="px-3 py-1 border border-slate-300 rounded hover:bg-slate-50">›</a>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+  </section>
+</div>
+</div>{# /page-body #}
+{% endblock %}

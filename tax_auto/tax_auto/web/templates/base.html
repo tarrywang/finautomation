@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}发票仓库{% endblock %}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.3/dist/cdn.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js"></script>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; }
+    table { border-collapse: collapse; }
+    .num { font-variant-numeric: tabular-nums; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 h-screen flex flex-col overflow-hidden">
+  <nav class="bg-slate-900 text-white px-6 py-3 shadow flex-shrink-0">
+    <div class="flex items-center gap-6 {% block nav_container %}max-w-screen-2xl{% endblock %} mx-auto">
+      <a href="/" class="font-semibold text-lg">📊 发票仓库</a>
+      <a href="/" class="text-slate-300 hover:text-white">总览</a>
+      <a href="/invoices" class="text-slate-300 hover:text-white">发票列表</a>
+      {% if request.state.current_user and request.state.current_user.role == "admin" %}
+      <a href="/admin/users" class="text-slate-300 hover:text-white">用户管理</a>
+      {% endif %}
+      <span class="flex-1"></span>
+      {% if request.state.current_user %}
+      <div x-data="{ open: false }" class="relative">
+        <button @click="open = !open" class="flex items-center gap-2 text-sm text-slate-200 hover:text-white">
+          <span class="inline-block w-7 h-7 rounded-full bg-slate-700 text-center leading-7 text-xs font-medium">{{ (request.state.current_user.display_name or request.state.current_user.username)[0]|upper }}</span>
+          <span>{{ request.state.current_user.display_name or request.state.current_user.username }}</span>
+          {% if request.state.current_user.role == "admin" %}
+            <span class="text-[10px] bg-rose-500/20 text-rose-200 rounded px-1.5 py-0.5">管理员</span>
+          {% elif request.state.current_user.role == "supervisor" %}
+            <span class="text-[10px] bg-blue-500/20 text-blue-200 rounded px-1.5 py-0.5">主管</span>
+          {% else %}
+            <span class="text-[10px] bg-slate-600 text-slate-200 rounded px-1.5 py-0.5">业务员</span>
+          {% endif %}
+          <span class="text-xs">▾</span>
+        </button>
+        <div x-show="open" @click.outside="open = false" x-transition class="absolute right-0 mt-2 w-44 bg-white text-slate-800 rounded-lg shadow-lg border border-slate-200 py-1 text-sm z-50">
+          <a href="/profile" class="block px-4 py-2 hover:bg-slate-50">👤 个人设置</a>
+          <a href="/profile/password" class="block px-4 py-2 hover:bg-slate-50">🔒 修改密码</a>
+          <div class="border-t my-1"></div>
+          <a href="/logout" class="block px-4 py-2 hover:bg-rose-50 text-rose-700">退出</a>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </nav>
+  <main class="{% block container %}max-w-screen-2xl{% endblock %} w-full mx-auto px-6 py-6 flex-1 min-h-0 {% block main_class %}overflow-auto{% endblock %}">
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

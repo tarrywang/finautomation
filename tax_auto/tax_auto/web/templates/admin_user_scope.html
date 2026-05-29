@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}公司授权 · {{ u.username }} · 发票仓库{% endblock %}
+{% block content %}
+<div class="max-w-3xl mx-auto space-y-4">
+  <a href="/admin/users" class="text-sm text-slate-500 hover:underline">← 返回用户列表</a>
+
+  <h1 class="text-2xl font-bold">🏢 公司授权 · {{ u.username }}</h1>
+  <p class="text-sm text-slate-600">
+    角色:
+    {% if u.role == "admin" %}
+      <span class="text-rose-700">管理员 — 默认全公司全权限,无需在此授权</span>
+    {% elif u.role == "supervisor" %}
+      <strong>主管</strong>(可授予"只查"或"可改")
+    {% else %}
+      <strong>业务员</strong>(只能授予"只查")
+    {% endif %}
+  </p>
+
+  {% if success %}<div class="px-4 py-3 rounded-lg bg-emerald-50 text-emerald-700 text-sm border border-emerald-200">✓ {{ success }}</div>{% endif %}
+  {% if error %}<div class="px-4 py-3 rounded-lg bg-rose-50 text-rose-700 text-sm border border-rose-200">⚠️ {{ error }}</div>{% endif %}
+
+  {% if u.role != "admin" %}
+  <div class="bg-white rounded-lg shadow border border-slate-200 p-6 space-y-3">
+    <h2 class="font-semibold">已授权的公司</h2>
+    {% if granted %}
+    <table class="w-full text-sm">
+      <thead class="text-slate-500 text-xs">
+        <tr class="border-b"><th class="text-left py-2">税号</th><th class="text-left py-2">公司</th><th class="text-left py-2">权限</th><th class="text-left py-2">授权时间</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for access, company in granted %}
+        <tr class="border-b border-slate-100">
+          <td class="py-2 font-mono text-xs">{{ access.tax_no }}</td>
+          <td class="py-2">{{ company.alias or company.name or "—" }}</td>
+          <td class="py-2">
+            {% if access.permission == "crud" %}
+              <span class="bg-emerald-50 text-emerald-700 border border-emerald-200 rounded px-2 py-0.5 text-xs">可改</span>
+            {% else %}
+              <span class="bg-slate-100 text-slate-600 border border-slate-200 rounded px-2 py-0.5 text-xs">只查</span>
+            {% endif %}
+          </td>
+          <td class="py-2 text-xs text-slate-500 num">{{ access.granted_at.strftime("%Y-%m-%d") }}</td>
+          <td class="py-2">
+            <form action="/admin/users/{{ u.id }}/scope/{{ access.tax_no }}/revoke" method="POST" class="inline">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <button class="text-rose-600 hover:underline text-xs">撤销</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+      <div class="text-sm text-slate-500">还没授权任何公司</div>
+    {% endif %}
+  </div>
+
+  {% if available %}
+  <div class="bg-white rounded-lg shadow border border-slate-200 p-6 space-y-3">
+    <h2 class="font-semibold">添加授权</h2>
+    <form action="/admin/users/{{ u.id }}/scope" method="POST" class="flex gap-2 items-end">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="flex-1">
+        <label class="block text-xs text-slate-500 mb-1">公司</label>
+        <select name="tax_no" required class="w-full px-3 py-2 border border-slate-300 rounded bg-white">
+          {% for c in available %}
+          <option value="{{ c.tax_no }}">{{ c.alias or c.name or c.tax_no }} ({{ c.tax_no }})</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs text-slate-500 mb-1">权限</label>
+        <select name="permission" class="px-3 py-2 border border-slate-300 rounded bg-white">
+          <option value="view">只查</option>
+          {% if u.role == "supervisor" %}<option value="crud">可改</option>{% endif %}
+        </select>
+      </div>
+      <button class="bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded">+ 授权</button>
+    </form>
+  </div>
+  {% endif %}
+  {% endif %}{# /not admin #}
+</div>
+{% endblock %}

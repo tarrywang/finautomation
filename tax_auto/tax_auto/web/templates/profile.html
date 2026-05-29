@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}个人设置 · 发票仓库{% endblock %}
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-6">
+  <h1 class="text-2xl font-bold">👤 个人设置</h1>
+
+  <div class="bg-white rounded-lg shadow border border-slate-200 p-6 space-y-3">
+    <div class="flex items-center justify-between">
+      <div>
+        <div class="text-xs text-slate-500">用户名</div>
+        <div class="text-lg font-medium">{{ user.username }}</div>
+      </div>
+      <div>
+        {% if user.role == "admin" %}
+          <span class="inline-block bg-rose-50 text-rose-700 border border-rose-200 rounded-full px-3 py-1 text-xs">管理员</span>
+        {% elif user.role == "supervisor" %}
+          <span class="inline-block bg-blue-50 text-blue-700 border border-blue-200 rounded-full px-3 py-1 text-xs">主管</span>
+        {% else %}
+          <span class="inline-block bg-slate-50 text-slate-700 border border-slate-200 rounded-full px-3 py-1 text-xs">业务员</span>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="grid grid-cols-2 gap-4 text-sm pt-3 border-t border-slate-100">
+      <div>
+        <div class="text-xs text-slate-500">显示名</div>
+        <div>{{ user.display_name or "—" }}</div>
+      </div>
+      <div>
+        <div class="text-xs text-slate-500">邮箱</div>
+        <div>{{ user.email or "—" }}</div>
+      </div>
+      <div>
+        <div class="text-xs text-slate-500">最后登录</div>
+        <div class="num">{{ user.last_login_at.strftime("%Y-%m-%d %H:%M") if user.last_login_at else "—" }}</div>
+      </div>
+      <div>
+        <div class="text-xs text-slate-500">密码更新于</div>
+        <div class="num">{{ user.password_changed_at.strftime("%Y-%m-%d") if user.password_changed_at else "—" }}</div>
+      </div>
+    </div>
+
+    <div class="pt-3 border-t border-slate-100">
+      <a href="/profile/password" class="inline-block bg-slate-900 hover:bg-slate-800 text-white text-sm px-4 py-2 rounded">修改密码</a>
+    </div>
+  </div>
+
+  <div class="bg-white rounded-lg shadow border border-slate-200 p-6">
+    <h2 class="font-semibold mb-3">我可访问的公司</h2>
+    {% if user.role == "admin" %}
+      <div class="text-sm text-slate-600 bg-rose-50 border border-rose-200 rounded p-3">
+        🔓 管理员账号 — 可访问全部公司,所有权限
+      </div>
+    {% elif scopes %}
+      <table class="w-full text-sm">
+        <thead class="text-slate-500 text-xs">
+          <tr class="border-b">
+            <th class="text-left py-2">税号</th>
+            <th class="text-left py-2">公司名</th>
+            <th class="text-left py-2">权限</th>
+            <th class="text-left py-2">授权时间</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for access, company in scopes %}
+            <tr class="border-b border-slate-100">
+              <td class="py-2 font-mono text-xs">{{ access.tax_no }}</td>
+              <td class="py-2">{{ company.alias or company.name or "—" }}</td>
+              <td class="py-2">
+                {% if access.permission == "crud" %}
+                  <span class="inline-block bg-emerald-50 text-emerald-700 border border-emerald-200 rounded px-2 py-0.5 text-xs">可改</span>
+                {% else %}
+                  <span class="inline-block bg-slate-100 text-slate-600 border border-slate-200 rounded px-2 py-0.5 text-xs">只查</span>
+                {% endif %}
+              </td>
+              <td class="py-2 text-xs text-slate-500 num">{{ access.granted_at.strftime("%Y-%m-%d") }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <div class="text-sm text-slate-500">还未被授权任何公司,请联系管理员</div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

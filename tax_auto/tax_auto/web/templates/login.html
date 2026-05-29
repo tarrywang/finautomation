@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>登录 · 发票仓库</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; }
+  </style>
+</head>
+<body class="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-slate-800">
+  <div class="w-full max-w-sm bg-white rounded-2xl shadow-2xl p-8">
+    <div class="text-center mb-6">
+      <div class="inline-flex items-center gap-2 text-2xl font-semibold text-slate-900">
+        <span>📊</span><span>发票仓库</span>
+      </div>
+      <p class="mt-2 text-sm text-slate-500">请输入账号密码登录</p>
+    </div>
+
+    {% if locked_min %}
+      <div class="mb-4 px-4 py-3 rounded-lg bg-amber-50 text-amber-700 text-sm border border-amber-200">
+        ⏳ 账户已临时锁定,请 {{ locked_min }} 分钟后再试
+      </div>
+    {% elif error == "ratelimit" %}
+      <div class="mb-4 px-4 py-3 rounded-lg bg-amber-50 text-amber-700 text-sm border border-amber-200">
+        ⏳ 登录尝试过于频繁,稍后再试
+      </div>
+    {% elif error %}
+      <div class="mb-4 px-4 py-3 rounded-lg bg-rose-50 text-rose-700 text-sm border border-rose-200">
+        ⚠️ 用户名或密码错误
+      </div>
+    {% endif %}
+
+    <form method="POST" action="/login" class="space-y-4">
+      <input type="hidden" name="next" value="{{ next }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+      <div>
+        <label class="block text-sm text-slate-600 mb-1">用户名</label>
+        <input
+          type="text"
+          name="username"
+          autocomplete="username"
+          autofocus
+          required
+          class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent text-slate-900"
+        >
+      </div>
+
+      <div>
+        <label class="block text-sm text-slate-600 mb-1">密码</label>
+        <input
+          type="password"
+          name="password"
+          autocomplete="current-password"
+          required
+          class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent text-slate-900"
+        >
+      </div>
+
+      <button
+        type="submit"
+        class="w-full bg-slate-900 hover:bg-slate-800 text-white font-medium py-2.5 rounded-lg transition"
+      >
+        登 录
+      </button>
+    </form>
+
+    <div class="mt-6 text-center text-xs text-slate-400">
+      忘记密码?请联系管理员重置
+    </div>
+  </div>
+</body>
+</html>

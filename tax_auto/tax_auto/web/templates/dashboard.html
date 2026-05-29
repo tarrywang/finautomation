@@ -1,0 +1,275 @@
+{% extends "base.html" %}
+
+{% block title %}总览 · 发票仓库{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+  <!-- ════════ 顶部:标题 + 快搜 + scope 提示 ════════ -->
+  <header class="flex items-baseline gap-6 flex-wrap">
+    <h1 class="text-2xl font-bold">📊 总览</h1>
+    <form action="/search" method="GET" class="flex-1 max-w-xl">
+      <div class="relative">
+        <input
+          name="q" type="text" autocomplete="off"
+          placeholder="搜索数电号码 / 销方名称 / 税号 …"
+          class="w-full px-4 py-2 pl-9 border border-slate-300 rounded-full focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent text-sm"
+        >
+        <span class="absolute left-3 top-2.5 text-slate-400">🔍</span>
+      </div>
+    </form>
+    <div class="text-xs text-slate-500">
+      {% if is_admin %}
+        🔓 当前看的是 <strong>全部公司</strong>
+      {% else %}
+        🏢 当前看的是 <strong>{{ scope_count }} 家公司</strong> 的数据
+      {% endif %}
+    </div>
+  </header>
+
+  <!-- ════════ 预设报表 chips ════════ -->
+  <section class="flex gap-2 flex-wrap">
+    <a href="/report/month_input" class="bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-full px-3 py-1.5 text-xs font-medium transition">📥 本月进项</a>
+    <a href="/report/month_output" class="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-full px-3 py-1.5 text-xs font-medium transition">📤 本月销项</a>
+    <a href="/report/week_new" class="bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-full px-3 py-1.5 text-xs font-medium transition">🆕 本周新进</a>
+    <a href="/report/abnormal" class="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-full px-3 py-1.5 text-xs font-medium transition">⚠️ 异常发票{% if abnormal_count %} ({{ abnormal_count }}){% endif %}</a>
+    <a href="/report/large" class="bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-full px-3 py-1.5 text-xs font-medium transition">💰 大额(≥¥5万)</a>
+    <a href="/invoices" class="ml-auto text-xs text-slate-500 hover:text-slate-700">高级筛选 →</a>
+  </section>
+
+  <!-- ════════ 最近 24 小时新进 ════════ -->
+  <section class="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-lg p-5 shadow">
+    <div class="flex items-baseline justify-between mb-3">
+      <h2 class="font-semibold text-base">🆕 最近 24 小时新进 <span class="text-xs text-amber-700 font-normal">(入库时间)</span></h2>
+      <div class="text-xs text-slate-500">
+        {% if last_sync_run and last_sync_run.ended_at %}
+          最近同步: {{ last_sync_run.ended_at.strftime("%Y-%m-%d %H:%M") }}
+        {% else %}
+          无同步记录
+        {% endif %}
+      </div>
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div class="bg-white rounded p-3 border border-amber-100">
+        <div class="text-xs text-blue-700 font-medium mb-1">进项</div>
+        <div class="flex items-baseline gap-2">
+          <span class="text-2xl font-bold num">{{ recent_input_n }}</span>
+          <span class="text-xs text-slate-500">张</span>
+          <span class="text-sm text-slate-600 num ml-auto">¥{{ "{:,.2f}".format(recent_input_total) }}</span>
+        </div>
+      </div>
+      <div class="bg-white rounded p-3 border border-amber-100">
+        <div class="text-xs text-emerald-700 font-medium mb-1">销项</div>
+        <div class="flex items-baseline gap-2">
+          <span class="text-2xl font-bold num">{{ recent_output_n }}</span>
+          <span class="text-xs text-slate-500">张</span>
+          <span class="text-sm text-slate-600 num ml-auto">¥{{ "{:,.2f}".format(recent_output_total) }}</span>
+        </div>
+      </div>
+    </div>
+    <a href="/invoices?since_hours=24" class="text-xs text-blue-600 hover:underline mt-3 inline-block">查看明细 →</a>
+  </section>
+
+  <!-- ════════ 公司卡片 ════════ -->
+  {% if cards %}
+  <section>
+    <h2 class="font-semibold text-base mb-3">🏢 公司账</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {% for card in cards %}
+      <div class="bg-white rounded-lg shadow p-4 border border-slate-200 hover:shadow-md transition">
+        <div class="font-medium text-base mb-1 truncate" title="{{ card.company.alias or card.company.name }}">
+          {{ card.company.alias or card.company.name or card.company.tax_no }}
+        </div>
+        <div class="text-xs text-slate-400 font-mono mb-3">{{ card.company.tax_no }}</div>
+        <div class="grid grid-cols-2 gap-2 text-sm">
+          <a href="/invoices?tax_no={{ card.company.tax_no }}&data_type=1" class="bg-blue-50 hover:bg-blue-100 rounded p-2 transition">
+            <div class="text-xs text-blue-700">进项</div>
+            <div class="font-semibold num">{{ card.input_count }} 张</div>
+            <div class="text-xs text-slate-500 num">¥{{ "{:,.0f}".format(card.input_total) }}</div>
+          </a>
+          <a href="/invoices?tax_no={{ card.company.tax_no }}&data_type=2" class="bg-emerald-50 hover:bg-emerald-100 rounded p-2 transition">
+            <div class="text-xs text-emerald-700">销项</div>
+            <div class="font-semibold num">{{ card.output_count }} 张</div>
+            <div class="text-xs text-slate-500 num">¥{{ "{:,.0f}".format(card.output_total) }}</div>
+          </a>
+        </div>
+        <div class="text-xs text-slate-400 mt-2">
+          {% if card.last_sync %}最近同步 {{ card.last_sync.strftime("%m-%d %H:%M") }}{% else %}未同步{% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+  {% else %}
+  <div class="bg-amber-50 border border-amber-200 rounded-lg p-6 text-amber-800 text-sm">
+    🚫 你还没有任何公司的访问权限,请联系管理员。
+  </div>
+  {% endif %}
+
+  <!-- ════════ 月度趋势 + 销方 Top10 + 税率分布 三栏 ════════ -->
+  <section class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+    <!-- 趋势 -->
+    <div class="bg-white rounded-lg shadow p-4 border border-slate-200 lg:col-span-2">
+      <h3 class="font-semibold text-sm mb-3">📈 月度趋势 (近 12 个月)</h3>
+      <canvas id="trendChart" height="120"></canvas>
+    </div>
+
+    <!-- 税率分布 -->
+    <div class="bg-white rounded-lg shadow p-4 border border-slate-200">
+      <h3 class="font-semibold text-sm mb-3">📊 进项税率分布</h3>
+      {% if tax_rate_rows %}
+      <canvas id="taxRatePie" height="200"></canvas>
+      <table class="w-full text-xs mt-3">
+        {% for slv, n, total in tax_rate_rows %}
+        <tr class="border-t border-slate-100"><td class="py-1">{{ slv }}</td><td class="text-right py-1">{{ n }} 张</td><td class="text-right py-1 num text-slate-500">¥{{ "{:,.0f}".format(total) }}</td></tr>
+        {% endfor %}
+      </table>
+      {% else %}
+      <div class="text-xs text-slate-400 py-8 text-center">无数据</div>
+      {% endif %}
+    </div>
+  </section>
+
+  <!-- ════════ 销方 Top 10 + 同步健康度 ════════ -->
+  <section class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    <!-- 销方 Top 10 -->
+    <div class="bg-white rounded-lg shadow p-4 border border-slate-200">
+      <h3 class="font-semibold text-sm mb-3">🏆 销方 Top 10 (进项金额)</h3>
+      {% if top_vendors %}
+      <table class="w-full text-xs">
+        <tbody>
+          {% for xfmc, xfsbh, n, total in top_vendors %}
+          <tr class="border-b border-slate-50">
+            <td class="py-2 truncate max-w-xs" title="{{ xfmc }}">
+              <a href="/invoices?xfsbh={{ xfsbh }}&data_type=1" class="hover:underline">{{ loop.index }}. {{ xfmc }}</a>
+            </td>
+            <td class="py-2 text-right text-slate-500">{{ n }} 张</td>
+            <td class="py-2 text-right num font-medium">¥{{ "{:,.0f}".format(total) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="text-xs text-slate-400 py-8 text-center">无数据</div>
+      {% endif %}
+    </div>
+
+    <!-- 同步健康度 -->
+    <div class="bg-white rounded-lg shadow p-4 border border-slate-200">
+      <h3 class="font-semibold text-sm mb-3">🩺 同步健康 (近 7 天)</h3>
+      {% if cards %}
+      <table class="w-full text-xs">
+        <thead class="text-slate-500">
+          <tr>
+            <th class="text-left py-1">公司</th>
+            {% for d in last_7_days %}<th class="text-center py-1 text-[10px]">{{ d.strftime("%m-%d") }}</th>{% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for card in cards %}
+          <tr class="border-t border-slate-100">
+            <td class="py-1 truncate max-w-[10rem] text-[11px]" title="{{ card.company.alias or card.company.name }}">{{ card.company.alias or card.company.name or card.company.tax_no[-4:] }}</td>
+            {% set day_map = sync_grid.get(card.company.tax_no, {}) %}
+            {% for d in last_7_days %}
+              {% set day_status = day_map.get(d|string, {}) %}
+              <td class="py-1 text-center">
+                {% if day_status.get('1') == 'success' or day_status.get('2') == 'success' %}
+                  <span class="inline-block w-4 h-4 bg-emerald-500 rounded" title="成功"></span>
+                {% elif day_status.get('1') == 'failed' or day_status.get('2') == 'failed' %}
+                  <span class="inline-block w-4 h-4 bg-rose-500 rounded" title="失败"></span>
+                {% else %}
+                  <span class="inline-block w-4 h-4 bg-slate-200 rounded" title="无"></span>
+                {% endif %}
+              </td>
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <div class="text-[10px] text-slate-400 mt-2 flex gap-3">
+        <span><span class="inline-block w-2 h-2 bg-emerald-500 rounded mr-1"></span>成功</span>
+        <span><span class="inline-block w-2 h-2 bg-rose-500 rounded mr-1"></span>失败</span>
+        <span><span class="inline-block w-2 h-2 bg-slate-200 rounded mr-1"></span>无运行</span>
+      </div>
+      {% else %}
+      <div class="text-xs text-slate-400 py-8 text-center">无数据</div>
+      {% endif %}
+    </div>
+  </section>
+
+  {% if recent_rows %}
+  <!-- ════════ 最近 24 小时明细表 ════════ -->
+  <section class="bg-white rounded-lg shadow p-4 border border-slate-200">
+    <details>
+      <summary class="cursor-pointer text-sm font-semibold hover:text-slate-600">最近 24 小时入库明细 (展示前 15 条) — <a href="/invoices?since_hours=24" class="text-blue-600 hover:underline">查看全部 →</a></summary>
+      <table class="w-full text-xs mt-3">
+        <thead class="text-slate-500 border-b">
+          <tr>
+            <th class="text-left py-1">开票</th>
+            <th class="text-left py-1">销方</th>
+            <th class="text-left py-1">购方</th>
+            <th class="text-left py-1">品种</th>
+            <th class="text-right py-1">价税合计</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for inv in recent_rows %}
+          <tr class="border-b border-slate-50">
+            <td class="py-1 num text-[10px]">{{ inv.kprq.strftime("%m-%d %H:%M") if inv.kprq else "—" }}</td>
+            <td class="py-1 truncate max-w-[12rem]">{{ inv.xfmc or "—" }}</td>
+            <td class="py-1 truncate max-w-[12rem]">{{ inv.gfmc or "—" }}</td>
+            <td class="py-1">{{ inv.fppz | fppz_short }}</td>
+            <td class="py-1 text-right num font-medium">¥{{ "{:,.2f}".format(inv.jshj) if inv.jshj else "—" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </details>
+  </section>
+  {% endif %}
+
+</div>
+
+<!-- ════════ 图表 ════════ -->
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const months  = {{ months | tojson }};
+  const inputs  = {{ input_data | tojson }};
+  const outputs = {{ output_data | tojson }};
+
+  if (months.length) {
+    new Chart(document.getElementById('trendChart'), {
+      type: 'line',
+      data: {
+        labels: months,
+        datasets: [
+          { label: '进项', data: inputs, borderColor: '#2563eb', backgroundColor: '#2563eb22', tension: 0.3, fill: true },
+          { label: '销项', data: outputs, borderColor: '#10b981', backgroundColor: '#10b98122', tension: 0.3, fill: true },
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: 'bottom', labels: { font: { size: 11 } } } },
+        scales: { y: { ticks: { callback: v => '¥' + (v/1e4).toFixed(1) + '万' } } }
+      }
+    });
+  }
+
+  const taxRateLabels = {{ tax_rate_rows | map(attribute=0) | list | tojson }};
+  const taxRateData = {{ tax_rate_rows | map(attribute=2) | map('float') | list | tojson }};
+  if (taxRateLabels.length) {
+    new Chart(document.getElementById('taxRatePie'), {
+      type: 'doughnut',
+      data: {
+        labels: taxRateLabels,
+        datasets: [{
+          data: taxRateData,
+          backgroundColor: ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#84cc16','#ec4899']
+        }]
+      },
+      options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { font: { size: 10 } } } } }
+    });
+  }
+});
+</script>
+{% endblock %}

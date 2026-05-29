@@ -34,7 +34,8 @@ tax_auto/runtime/traces/
 
 # 参考资料(发票通官方 PDF / 规划 HTML),不入 repo
 rawdata/
-*.html
+# 只忽略仓库根目录的 .html 文档,不要碰子目录里的 Jinja templates
+/*.html
 
 # 旧 git artifacts
 tax_auto/.git*

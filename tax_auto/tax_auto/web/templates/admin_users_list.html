@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}用户管理 · 发票仓库{% endblock %}
+{% block content %}
+<div class="max-w-6xl mx-auto space-y-4">
+  <div class="flex items-center justify-between">
+    <h1 class="text-2xl font-bold">👥 用户管理</h1>
+    <a href="/admin/users/new" class="bg-slate-900 hover:bg-slate-800 text-white text-sm px-4 py-2 rounded">+ 新建用户</a>
+  </div>
+
+  {% if success %}
+    <div class="px-4 py-3 rounded-lg bg-emerald-50 text-emerald-700 text-sm border border-emerald-200">✓ {{ success }}</div>
+  {% endif %}
+  {% if error %}
+    <div class="px-4 py-3 rounded-lg bg-rose-50 text-rose-700 text-sm border border-rose-200">⚠️ {{ error }}</div>
+  {% endif %}
+
+  <div class="bg-white rounded-lg shadow border border-slate-200 overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead class="bg-slate-50 text-slate-600 border-b border-slate-200">
+        <tr>
+          <th class="text-left py-2 px-3">ID</th>
+          <th class="text-left py-2 px-3">用户名</th>
+          <th class="text-left py-2 px-3">显示名</th>
+          <th class="text-left py-2 px-3">角色</th>
+          <th class="text-left py-2 px-3">状态</th>
+          <th class="text-left py-2 px-3">最后登录</th>
+          <th class="text-left py-2 px-3">登录失败</th>
+          <th class="text-left py-2 px-3"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in users %}
+        <tr class="border-b border-slate-100 hover:bg-slate-50">
+          <td class="py-2 px-3 text-slate-400">{{ u.id }}</td>
+          <td class="py-2 px-3 font-medium">{{ u.username }}</td>
+          <td class="py-2 px-3">{{ u.display_name or "—" }}</td>
+          <td class="py-2 px-3">
+            {% if u.role == "admin" %}
+              <span class="bg-rose-50 text-rose-700 border border-rose-200 rounded-full px-2 py-0.5 text-xs">管理员</span>
+            {% elif u.role == "supervisor" %}
+              <span class="bg-blue-50 text-blue-700 border border-blue-200 rounded-full px-2 py-0.5 text-xs">主管</span>
+            {% else %}
+              <span class="bg-slate-100 text-slate-700 border border-slate-200 rounded-full px-2 py-0.5 text-xs">业务员</span>
+            {% endif %}
+          </td>
+          <td class="py-2 px-3">
+            {% if u.is_active %}
+              <span class="text-emerald-700">✓ 活跃</span>
+            {% else %}
+              <span class="text-slate-400">禁用</span>
+            {% endif %}
+            {% if u.locked_until %}<span class="text-amber-700 text-xs ml-2">🔒 已锁</span>{% endif %}
+          </td>
+          <td class="py-2 px-3 text-xs num text-slate-500">
+            {{ u.last_login_at.strftime("%Y-%m-%d %H:%M") if u.last_login_at else "—" }}
+          </td>
+          <td class="py-2 px-3 text-xs">
+            {{ u.failed_login_count or 0 }}
+          </td>
+          <td class="py-2 px-3 space-x-2">
+            <a href="/admin/users/{{ u.id }}" class="text-blue-600 hover:underline">编辑</a>
+            <a href="/admin/users/{{ u.id }}/scope" class="text-emerald-600 hover:underline">公司授权</a>
+            {% if u.role != "admin" %}
+              <form action="/admin/users/{{ u.id }}/delete" method="POST" class="inline" onsubmit="return confirm('确认删除 {{ u.username }} ?');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <button class="text-rose-600 hover:underline">删除</button>
+              </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
