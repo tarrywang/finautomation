@@ -78,7 +78,7 @@ jobs:
           PG_DB: fapiao_test
           PG_USER: fapiao
           PG_PASSWORD: test_pw_only
-          SESSION_SECRET: ${{ '0' * 64 }}
+          SESSION_SECRET: 0000000000000000000000000000000000000000000000000000000000000000
           FAPIAO_CLIENT_ID: dummy
           FAPIAO_CLIENT_SECRET: dummy
         run: uv run pytest -q
