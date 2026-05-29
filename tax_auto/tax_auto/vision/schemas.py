@@ -55,7 +55,7 @@ class Decision(BaseModel):
     blocked_reason: str | None = Field(default=None, max_length=500)
 
     @model_validator(mode="after")
-    def _must_explain_when_blocked(self) -> "Decision":
+    def _must_explain_when_blocked(self) -> Decision:
         if self.is_blocked and not self.blocked_reason:
             raise ValueError("blocked_reason required when is_blocked=true")
         return self

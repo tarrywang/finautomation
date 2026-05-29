@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import time
 import traceback
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from ulid import ULID
@@ -47,18 +47,21 @@ if TYPE_CHECKING:
 
 
 def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _audit(run_id: str, action: str, detail: str | None = None) -> None:
     with session_scope() as sess:
-        sess.add(AuditLog(run_id=run_id, actor="system", action=action,
-                          detail_json=detail))
+        sess.add(AuditLog(run_id=run_id, actor="system", action=action, detail_json=detail))
 
 
 def _persist_run(
-    run_id: str, *, state: RunState, last_step: str | None = None,
-    error_class: str | None = None, error_message: str | None = None,
+    run_id: str,
+    *,
+    state: RunState,
+    last_step: str | None = None,
+    error_class: str | None = None,
+    error_message: str | None = None,
     ended: bool = False,
 ) -> None:
     with session_scope() as sess:
@@ -79,10 +82,14 @@ def _persist_run(
 def _create_run(tax_id: str, params: dict) -> str:  # type: ignore[type-arg]
     run_id = str(ULID())
     import json
+
     with session_scope() as sess:
         sess.add(Run(id=run_id, tax_id=tax_id, state=RunState.PENDING.value))
-        sess.add(AuditLog(run_id=run_id, actor="system", action="RUN_START",
-                          detail_json=json.dumps(params)))
+        sess.add(
+            AuditLog(
+                run_id=run_id, actor="system", action="RUN_START", detail_json=json.dumps(params)
+            )
+        )
     return run_id
 
 
@@ -99,14 +106,14 @@ def run_fetch(
     error_class, error_message.
     """
     settings = get_settings()
-    run_id = _create_run(tax_id, {"date_from": date_from, "date_to": date_to,
-                                  "dry_run": dry_run})
+    run_id = _create_run(tax_id, {"date_from": date_from, "date_to": date_to, "dry_run": dry_run})
     log = bind(run_id=run_id, tax_id=tax_id)
     started = time.monotonic()
     log.info(f"run started: {date_from} → {date_to} dry_run={dry_run}")
 
-    ctx = RunContext(run_id=run_id, tax_id=tax_id,
-                     date_from=date_from, date_to=date_to, dry_run=dry_run)
+    ctx = RunContext(
+        run_id=run_id, tax_id=tax_id, date_from=date_from, date_to=date_to, dry_run=dry_run
+    )
     state = RunState.AUTHENTICATING
     _persist_run(run_id, state=state)
     summary: dict = {"state": None, "duration_s": 0.0}  # type: ignore[type-arg]
@@ -116,6 +123,7 @@ def run_fetch(
             # Optional trace recording — see W4 obs/trace.py
             try:
                 from tax_auto.obs.trace import maybe_start_trace, stop_trace
+
                 maybe_start_trace(browser_ctx, run_id)
             except ImportError:
                 pass
@@ -136,9 +144,13 @@ def run_fetch(
                     result = fn(page, ctx)
                 except FaceVerifyRequired as e:
                     log.warning(f"{name}: face verify required → notifying + waiting")
-                    _persist_run(run_id, state=RunState.NEEDS_HUMAN, last_step=name,
-                                  error_class="FaceVerifyRequired",
-                                  error_message=str(e))
+                    _persist_run(
+                        run_id,
+                        state=RunState.NEEDS_HUMAN,
+                        last_step=name,
+                        error_class="FaceVerifyRequired",
+                        error_message=str(e),
+                    )
                     _audit(run_id, "FACE_VERIFY_PROMPT", str(e))
                     _notify_face_verify(tax_id, run_id, page)
                     _wait_for_face_verify_to_clear(page, settings.timeout_face_verify_s)
@@ -163,6 +175,7 @@ def run_fetch(
 
             try:
                 from tax_auto.obs.trace import stop_trace
+
                 stop_trace(browser_ctx, run_id)
             except ImportError:
                 pass
@@ -174,24 +187,29 @@ def run_fetch(
     except SessionExpired as e:
         log.error(f"session expired: {e}")
         state = RunState.FAILED
-        _persist_run(run_id, state=state, error_class="SessionExpired",
-                     error_message=str(e), ended=True)
+        _persist_run(
+            run_id, state=state, error_class="SessionExpired", error_message=str(e), ended=True
+        )
         summary["error_class"] = "SessionExpired"
         summary["error_message"] = str(e)
-    except (HumanRequired, SelectorMissError, ExportTimeout, DataIntegrityError,
-            TaxAutoError) as e:
+    except (HumanRequired, SelectorMissError, ExportTimeout, DataIntegrityError, TaxAutoError) as e:
         log.error(f"flow error: {type(e).__name__}: {e}")
         state = RunState.FAILED
-        _persist_run(run_id, state=state, error_class=type(e).__name__,
-                     error_message=str(e), ended=True)
+        _persist_run(
+            run_id, state=state, error_class=type(e).__name__, error_message=str(e), ended=True
+        )
         summary["error_class"] = type(e).__name__
         summary["error_message"] = str(e)
-    except Exception as e:  # noqa: BLE001 — final safety net
+    except Exception as e:
         log.exception("unhandled error in run")
         state = RunState.FAILED
-        _persist_run(run_id, state=state, error_class="Unexpected",
-                     error_message=f"{type(e).__name__}: {e}\n{traceback.format_exc()}",
-                     ended=True)
+        _persist_run(
+            run_id,
+            state=state,
+            error_class="Unexpected",
+            error_message=f"{type(e).__name__}: {e}\n{traceback.format_exc()}",
+            ended=True,
+        )
         summary["error_class"] = type(e).__name__
         summary["error_message"] = str(e)
 
@@ -204,18 +222,20 @@ def _notify_face_verify(tax_id: str, run_id: str, page) -> None:  # type: ignore
     """Snap a screenshot + email user. Lazy imports to avoid hard dep."""
     try:
         from tax_auto.obs.trace import screenshot_to_run_dir
+
         shot = screenshot_to_run_dir(page, run_id, "face_verify")
-    except Exception:  # noqa: BLE001
+    except Exception:
         shot = None
     try:
         from tax_auto.notify.email import send_email
-        from tax_auto.notify.templates import face_verify_subject, face_verify_body
+        from tax_auto.notify.templates import face_verify_body, face_verify_subject
+
         send_email(
             subject=face_verify_subject(tax_id),
             body=face_verify_body(tax_id, run_id, shot),
             level="CRITICAL",
         )
-    except Exception:  # noqa: BLE001
+    except Exception:
         bind(run_id=run_id, tax_id=tax_id).warning("email notification failed (continuing)")
 
 
@@ -232,7 +252,7 @@ def _wait_for_face_verify_to_clear(page, timeout_s: int) -> None:  # type: ignor
                 if page.locator(sel).first.is_visible(timeout=1000):
                     any_visible = True
                     break
-            except Exception:  # noqa: BLE001
+            except Exception:
                 continue
         if not any_visible:
             return

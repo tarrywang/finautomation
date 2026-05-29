@@ -11,9 +11,9 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy import Select, func, or_, select
 from sqlalchemy.orm import Session
 
+from ...warehouse.models import Company, Invoice, SyncRun, User
 from ..auth import get_current_user, get_user_scope_taxnos
 from ..deps import get_db, templates
-from ...warehouse.models import Company, Invoice, SyncRun, User
 
 router = APIRouter()
 
@@ -38,6 +38,7 @@ def _scope_syncruns(stmt: Select, user: User, db: Session) -> Select:
 
 # ─────────────────────── Quick search ───────────────────────
 
+
 @router.get("/search")
 def quick_search(
     user: Annotated[User, Depends(get_current_user)],
@@ -60,25 +61,32 @@ def quick_search(
 
 # ─────────────────────── Preset reports ───────────────────────
 
+
 @router.get("/report/{name}")
 def preset_report(name: str) -> Response:
     today = date.today()
     month_start = today.replace(day=1)
-    week_ago = today - timedelta(days=7)
     if name == "month_input":
-        return RedirectResponse(f"/invoices?data_type=1&kprq_from={month_start}&kprq_to={today}", status_code=302)
+        return RedirectResponse(
+            f"/invoices?data_type=1&kprq_from={month_start}&kprq_to={today}", status_code=302
+        )
     if name == "month_output":
-        return RedirectResponse(f"/invoices?data_type=2&kprq_from={month_start}&kprq_to={today}", status_code=302)
+        return RedirectResponse(
+            f"/invoices?data_type=2&kprq_from={month_start}&kprq_to={today}", status_code=302
+        )
     if name == "week_new":
         return RedirectResponse("/invoices?since_hours=168", status_code=302)  # 7d * 24h
     if name == "abnormal":
-        return RedirectResponse("/invoices?fpzt=已红冲-全额&fpzt=作废&fpzt=部分红冲", status_code=302)
+        return RedirectResponse(
+            "/invoices?fpzt=已红冲-全额&fpzt=作废&fpzt=部分红冲", status_code=302
+        )
     if name == "large":
         return RedirectResponse("/invoices?jshj_min=50000&data_type=1", status_code=302)
     return RedirectResponse("/invoices", status_code=302)
 
 
 # ─────────────────────── Dashboard ───────────────────────
+
 
 @router.get("/", response_class=HTMLResponse)
 def dashboard(
@@ -99,8 +107,10 @@ def dashboard(
 
     cards = []
     for c in self_companies:
-        stats: dict[str, dict] = {"1": {"count": 0, "total": Decimal(0)},
-                                   "2": {"count": 0, "total": Decimal(0)}}
+        stats: dict[str, dict] = {
+            "1": {"count": 0, "total": Decimal(0)},
+            "2": {"count": 0, "total": Decimal(0)},
+        }
         rows = db.execute(
             select(
                 Invoice.data_type,
@@ -116,14 +126,16 @@ def dashboard(
         last_sync = db.execute(
             select(func.max(SyncRun.ended_at)).where(SyncRun.tax_no == c.tax_no)
         ).scalar()
-        cards.append({
-            "company": c,
-            "input_count": stats["1"]["count"],
-            "input_total": stats["1"]["total"],
-            "output_count": stats["2"]["count"],
-            "output_total": stats["2"]["total"],
-            "last_sync": last_sync,
-        })
+        cards.append(
+            {
+                "company": c,
+                "input_count": stats["1"]["count"],
+                "input_total": stats["1"]["total"],
+                "output_count": stats["2"]["count"],
+                "output_total": stats["2"]["total"],
+                "last_sync": last_sync,
+            }
+        )
 
     # ── Monthly trend (last 12 months, scoped) ──
     monthly_rows = db.execute(
@@ -132,9 +144,9 @@ def dashboard(
                 func.to_char(Invoice.kprq, "YYYY-MM").label("month"),
                 Invoice.data_type,
                 func.coalesce(func.sum(Invoice.jshj), 0),
-            )
-            .where(Invoice.kprq.isnot(None)),
-            user, db,
+            ).where(Invoice.kprq.isnot(None)),
+            user,
+            db,
         )
         .group_by("month", Invoice.data_type)
         .order_by("month")
@@ -151,30 +163,37 @@ def dashboard(
                 Invoice.data_type,
                 func.count(Invoice.id),
                 func.coalesce(func.sum(Invoice.jshj), 0),
-            )
-            .where(Invoice.first_seen_at >= cutoff),
-            user, db,
-        )
-        .group_by(Invoice.data_type)
+            ).where(Invoice.first_seen_at >= cutoff),
+            user,
+            db,
+        ).group_by(Invoice.data_type)
     ).all()
-    recent_counts: dict[str, dict] = {"1": {"n": 0, "total": Decimal(0)},
-                                       "2": {"n": 0, "total": Decimal(0)}}
+    recent_counts: dict[str, dict] = {
+        "1": {"n": 0, "total": Decimal(0)},
+        "2": {"n": 0, "total": Decimal(0)},
+    }
     for dt, n, total in recent_summary:
         if dt in recent_counts:
             recent_counts[dt] = {"n": n, "total": total}
 
-    recent_rows = db.execute(
-        _scope_invoices(
-            select(Invoice).where(Invoice.first_seen_at >= cutoff),
-            user, db,
+    recent_rows = (
+        db.execute(
+            _scope_invoices(
+                select(Invoice).where(Invoice.first_seen_at >= cutoff),
+                user,
+                db,
+            )
+            .order_by(Invoice.first_seen_at.desc())
+            .limit(15)
         )
-        .order_by(Invoice.first_seen_at.desc())
-        .limit(15)
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
     last_sync_run = db.execute(
         _scope_syncruns(select(SyncRun), user, db)
-        .order_by(SyncRun.ended_at.desc().nullslast()).limit(1)
+        .order_by(SyncRun.ended_at.desc().nullslast())
+        .limit(1)
     ).scalar_one_or_none()
 
     # ── Top vendors (进项, scoped) ──
@@ -185,9 +204,9 @@ def dashboard(
                 Invoice.xfsbh,
                 func.count(Invoice.id),
                 func.coalesce(func.sum(Invoice.jshj), 0),
-            )
-            .where(Invoice.data_type == "1", Invoice.xfsbh.isnot(None)),
-            user, db,
+            ).where(Invoice.data_type == "1", Invoice.xfsbh.isnot(None)),
+            user,
+            db,
         )
         .group_by(Invoice.xfmc, Invoice.xfsbh)
         .order_by(func.coalesce(func.sum(Invoice.jshj), 0).desc())
@@ -201,9 +220,9 @@ def dashboard(
                 Invoice.slv,
                 func.count(Invoice.id),
                 func.coalesce(func.sum(Invoice.jshj), 0),
-            )
-            .where(Invoice.data_type == "1", Invoice.slv.isnot(None)),
-            user, db,
+            ).where(Invoice.data_type == "1", Invoice.slv.isnot(None)),
+            user,
+            db,
         )
         .group_by(Invoice.slv)
         .order_by(func.count(Invoice.id).desc())
@@ -220,7 +239,8 @@ def dashboard(
                 SyncRun.status,
                 func.count(SyncRun.id),
             ).where(SyncRun.started_at >= seven_days_ago),
-            user, db,
+            user,
+            db,
         ).group_by("d", SyncRun.tax_no, SyncRun.data_type, SyncRun.status)
     ).all()
     # Build a per-day status: {tax_no: {date: {1: status, 2: status}}}
@@ -241,7 +261,8 @@ def dashboard(
                     Invoice.fpzt == "作废",
                 ),
             ),
-            user, db,
+            user,
+            db,
         )
     ).scalar_one()
 

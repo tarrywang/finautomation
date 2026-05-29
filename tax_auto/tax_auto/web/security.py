@@ -14,7 +14,7 @@ import bcrypt
 
 # bcrypt has a 72-byte input limit; pre-hash with SHA-256 to support any length
 # and to avoid leaking the original via length-side-channel.
-_PEPPER = b"fapiao-pw-"   # fixed prefix to differentiate from raw bcrypt hashes
+_PEPPER = b"fapiao-pw-"  # fixed prefix to differentiate from raw bcrypt hashes
 
 
 def _prepare(password: str) -> bytes:
@@ -55,6 +55,7 @@ def check_password_policy(password: str, username: str | None = None) -> str | N
 
 
 # ─── CSRF token ─────────────────────────────────────────────────────
+
 
 def generate_csrf_token() -> str:
     return secrets.token_urlsafe(32)

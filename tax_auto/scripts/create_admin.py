@@ -59,12 +59,12 @@ def main() -> int:
 
     SessionLocal = get_sessionmaker()
     with SessionLocal() as s:
-        existing_admin = s.execute(
-            select(User).where(User.role == "admin", User.is_active.is_(True))
-        ).scalars().first()
-        same_username = s.execute(
-            select(User).where(User.username == username)
-        ).scalars().first()
+        existing_admin = (
+            s.execute(select(User).where(User.role == "admin", User.is_active.is_(True)))
+            .scalars()
+            .first()
+        )
+        same_username = s.execute(select(User).where(User.username == username)).scalars().first()
 
         if same_username and not args.reset:
             print(f"✗ 用户名 {username!r} 已存在;加 --reset 重置该账号密码")
@@ -118,9 +118,9 @@ def main() -> int:
             print(f"\n✓ 已创建 admin {username!r} (id={u.id})")
 
         # Sanity check the hash works
-        assert verify_password(pw1, s.execute(
-            select(User.password_hash).where(User.username == username)
-        ).scalar_one()), "verify roundtrip failed"
+        assert verify_password(
+            pw1, s.execute(select(User.password_hash).where(User.username == username)).scalar_one()
+        ), "verify roundtrip failed"
 
     print("\n下一步: 启动 uvicorn,访问 /login 用刚才设置的用户名密码登录。")
     return 0

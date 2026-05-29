@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import shlex
 import subprocess
 
 from tax_auto.obs.logging import bind
@@ -17,7 +16,9 @@ def notify(title: str, message: str) -> bool:
     try:
         subprocess.run(
             ["osascript", "-e", script],
-            check=True, timeout=5, capture_output=True,
+            check=True,
+            timeout=5,
+            capture_output=True,
         )
         return True
     except FileNotFoundError:

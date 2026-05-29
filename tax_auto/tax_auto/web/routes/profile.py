@@ -2,17 +2,18 @@
 
 from __future__ import annotations
 
+from datetime import UTC
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ...warehouse.models import User, UserCompanyAccess, Company
+from ...warehouse.models import Company, User, UserCompanyAccess
 from ..auth import get_current_user, get_or_make_csrf
 from ..deps import get_db, templates
 from ..security import check_password_policy, hash_password, verify_password
-from sqlalchemy import select
 
 router = APIRouter(prefix="/profile", tags=["profile"])
 
@@ -34,7 +35,8 @@ def profile_page(
             .order_by(Company.tax_no)
         ).all()
     return templates.TemplateResponse(
-        request, "profile.html",
+        request,
+        "profile.html",
         {
             "user": user,
             "scopes": scopes,
@@ -52,7 +54,8 @@ def password_page(
     error: str = "",
 ) -> HTMLResponse:
     return templates.TemplateResponse(
-        request, "profile_password.html",
+        request,
+        "profile_password.html",
         {
             "user": user,
             "forced": bool(forced),
@@ -76,22 +79,17 @@ def change_password(
     # CSRF was verified by middleware
 
     if not verify_password(current_password, user.password_hash):
-        return RedirectResponse(
-            url="/profile/password?error=current", status_code=302
-        )
+        return RedirectResponse(url="/profile/password?error=current", status_code=302)
     if new_password != new_password_confirm:
-        return RedirectResponse(
-            url="/profile/password?error=mismatch", status_code=302
-        )
+        return RedirectResponse(url="/profile/password?error=mismatch", status_code=302)
     err = check_password_policy(new_password, user.username)
     if err:
-        return RedirectResponse(
-            url=f"/profile/password?error={err}", status_code=302
-        )
+        return RedirectResponse(url=f"/profile/password?error={err}", status_code=302)
 
-    from datetime import datetime, timezone
+    from datetime import datetime
+
     user.password_hash = hash_password(new_password)
     user.must_change_password = False
-    user.password_changed_at = datetime.now(timezone.utc)
+    user.password_changed_at = datetime.now(UTC)
     db.commit()
     return RedirectResponse(url="/profile/password?success=1", status_code=302)

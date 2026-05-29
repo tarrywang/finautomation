@@ -21,6 +21,7 @@ if str(_TAX_AUTO_DIR) not in sys.path:
 # Load .env from financeautomation/ (parent of tax_auto/)
 try:
     from dotenv import load_dotenv  # type: ignore[import-untyped]
+
     _ENV_FILE = _TAX_AUTO_DIR.parent / ".env"
     if _ENV_FILE.exists():
         load_dotenv(_ENV_FILE)

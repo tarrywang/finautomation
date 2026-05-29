@@ -45,18 +45,12 @@ def build_canonical_string(
     ]
     http_header_str = "\n".join(parts) + "\n"
 
-    x_mars = {
-        k.lower(): v
-        for k, v in headers.items()
-        if k.lower().startswith("x-mars-")
-    }
+    x_mars = {k.lower(): v for k, v in headers.items() if k.lower().startswith("x-mars-")}
     custom_header_str = "".join(f"{k}:{v}\n" for k, v in sorted(x_mars.items()))
 
     resource = full_url_no_query
     if query:
-        q_str = "&".join(
-            f"{k}={quote(str(v), safe='')}" for k, v in sorted(query.items())
-        )
+        q_str = "&".join(f"{k}={quote(str(v), safe='')}" for k, v in sorted(query.items()))
         resource = f"{full_url_no_query}?{q_str}"
 
     return http_header_str + custom_header_str + resource

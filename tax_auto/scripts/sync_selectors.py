@@ -113,6 +113,7 @@ def main() -> int:
 
     print("\nRunning tests/unit/test_selectors.py to validate structure...")
     import subprocess
+
     result = subprocess.run(
         ["uv", "run", "pytest", "tests/unit/test_selectors.py", "-q"],
         cwd=PROJECT_ROOT,

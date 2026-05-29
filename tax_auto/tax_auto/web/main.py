@@ -18,7 +18,6 @@ if _ENV.exists():
     load_dotenv(_ENV)
 
 from fastapi import FastAPI  # noqa: E402
-from fastapi.responses import RedirectResponse  # noqa: E402
 from starlette.middleware.sessions import SessionMiddleware  # noqa: E402
 
 from . import auth as auth_module  # noqa: E402

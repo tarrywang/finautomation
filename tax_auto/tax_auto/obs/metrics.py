@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from pathlib import Path
 from statistics import median
 
@@ -31,22 +31,19 @@ def _percentile(values: list[float], p: float) -> float:
 
 def compute_daily(target_date: date | None = None) -> dict:  # type: ignore[type-arg]
     """Aggregate runs that started on the target day (UTC)."""
-    target_date = target_date or datetime.now(timezone.utc).date()
+    target_date = target_date or datetime.now(UTC).date()
     day_str = target_date.isoformat()
 
     # Materialize tuples inside the session — avoid DetachedInstanceError after close
     with session_scope() as sess:
         rows = sess.exec(select(Run)).all()
         snapshots = [
-            (r.started_at, r.ended_at, r.state, r.llm_calls, r.llm_cost_cents)
-            for r in rows
+            (r.started_at, r.ended_at, r.state, r.llm_calls, r.llm_cost_cents) for r in rows
         ]
 
     todays = [s for s in snapshots if s[0].date() == target_date]
     durations: list[float] = [
-        (ended - started).total_seconds()
-        for started, ended, _, _, _ in todays
-        if ended is not None
+        (ended - started).total_seconds() for started, ended, _, _, _ in todays if ended is not None
     ]
     llm_total = sum(s[3] for s in todays)
     cost_total_cents = sum(s[4] for s in todays)
@@ -75,7 +72,7 @@ def write_daily_snapshot() -> Path:
         try:
             existing = json.loads(path.read_text())
             history = [x for x in existing if x["date"] != metrics["date"]]
-        except Exception:  # noqa: BLE001
+        except Exception:
             history = []
     history.append(metrics)
     history.sort(key=lambda x: x["date"])

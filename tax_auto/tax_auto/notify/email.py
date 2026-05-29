@@ -83,6 +83,6 @@ def send_email(
         _record_send()
         log.info(f"[email] sent: {level} {subject}")
         return True
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         log.error(f"[email] send failed: {type(e).__name__}: {e}")
         return False

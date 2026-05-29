@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlmodel import Field, SQLModel
 
 
 def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 class Customer(SQLModel, table=True):
@@ -17,10 +17,10 @@ class Customer(SQLModel, table=True):
     __tablename__ = "customers"
 
     tax_id: str = Field(primary_key=True, max_length=32)  # 统一社会信用代码
-    alias: str = Field(max_length=64)                      # 显示名
+    alias: str = Field(max_length=64)  # 显示名
     contact: str | None = Field(default=None, max_length=128)
     notification_level: str = Field(default="INFO", max_length=16)  # INFO|WARN|CRITICAL
-    use_china_llm: bool = False                            # ADR-0001 followup
+    use_china_llm: bool = False  # ADR-0001 followup
     created_at: datetime = Field(default_factory=_utcnow)
     active: bool = True
 
@@ -46,8 +46,8 @@ class Task(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     tax_id: str = Field(foreign_key="customers.tax_id", max_length=32, index=True)
     kind: str = Field(max_length=32)  # FETCH_INVOICES | LOGIN_REFRESH | ...
-    params_json: str                   # JSON-encoded dict
-    schedule_cron: str | None = None   # None = one-shot
+    params_json: str  # JSON-encoded dict
+    schedule_cron: str | None = None  # None = one-shot
     enabled: bool = True
     created_at: datetime = Field(default_factory=_utcnow)
 
@@ -99,6 +99,6 @@ class AuditLog(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     ts: datetime = Field(default_factory=_utcnow, index=True)
     run_id: str | None = Field(default=None, max_length=32)
-    actor: str = Field(max_length=64)        # system | human:tarry
-    action: str = Field(max_length=32)       # LOGIN | EXPORT | FACE_VERIFY | DELETE
+    actor: str = Field(max_length=64)  # system | human:tarry
+    action: str = Field(max_length=32)  # LOGIN | EXPORT | FACE_VERIFY | DELETE
     detail_json: str | None = None

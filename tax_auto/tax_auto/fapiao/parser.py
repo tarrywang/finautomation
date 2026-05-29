@@ -39,6 +39,7 @@ ALL_INVOICE_SECTIONS = ITEM_SECTIONS | HEADER_ONLY_SECTIONS
 @dataclass
 class ParsedInvoice:
     """One invoice header + its商品 lines."""
+
     sdfphm: str | None
     fphm: str | None
     fpdm: str | None
@@ -189,9 +190,7 @@ def parse_response(decoded: dict[str, Any]) -> list[ParsedInvoice]:
             by_sdfphm[sdfphm] = _extract_header(row, "XXHZB")
         # row_no for this invoice's商品 lines
         item_row_counter[sdfphm] += 1
-        by_sdfphm[sdfphm].items.append(
-            _extract_item(row, item_row_counter[sdfphm])
-        )
+        by_sdfphm[sdfphm].items.append(_extract_item(row, item_row_counter[sdfphm]))
 
     # Step 2: header-only sections — only fill if not already seen
     for section in HEADER_ONLY_SECTIONS:

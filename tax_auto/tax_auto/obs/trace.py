@@ -23,10 +23,13 @@ def maybe_start_trace(ctx: BrowserContext, run_id: str) -> None:
     started twice — we swallow that)."""
     try:
         ctx.tracing.start(
-            name=run_id, screenshots=True, snapshots=True, sources=False,
+            name=run_id,
+            screenshots=True,
+            snapshots=True,
+            sources=False,
         )
         bind(run_id=run_id).debug("tracing started")
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         bind(run_id=run_id).debug(f"tracing already running or failed to start: {e}")
 
 
@@ -37,7 +40,7 @@ def stop_trace(ctx: BrowserContext, run_id: str) -> Path | None:
         ctx.tracing.stop(path=str(out))
         bind(run_id=run_id).info(f"trace saved → {out}")
         return out
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         bind(run_id=run_id).warning(f"trace stop failed: {e}")
         return None
 

@@ -84,11 +84,19 @@ def sync_one(
     archive_raw_payload(s, sync_run_id, decoded)
     parsed = parse_response(decoded)
     inv_n, item_n = ingest_invoices(
-        s, tax_no=tax_no, data_type=data_type, sync_run_id=sync_run_id, parsed=parsed,
+        s,
+        tax_no=tax_no,
+        data_type=data_type,
+        sync_run_id=sync_run_id,
+        parsed=parsed,
     )
     raw_size = len(json.dumps(decoded, ensure_ascii=False).encode("utf-8"))
     mark_sync_run_complete(
-        s, sr, invoice_count=inv_n, request_id=raw.get("requestId"), raw_size=raw_size,
+        s,
+        sr,
+        invoice_count=inv_n,
+        request_id=raw.get("requestId"),
+        raw_size=raw_size,
     )
     s.commit()
     logger.info("✓ %s — %d invoices, %d items, raw=%dKB", label, inv_n, item_n, raw_size // 1024)
@@ -116,12 +124,16 @@ def main() -> int:
     logger.info("daily sync · window [%s ~ %s] (%d days)", start, end, days)
 
     with SessionLocal() as s:
-        self_companies = s.execute(
-            select(Company).where(Company.is_self.is_(True)).order_by(Company.tax_no)
-        ).scalars().all()
+        self_companies = (
+            s.execute(select(Company).where(Company.is_self.is_(True)).order_by(Company.tax_no))
+            .scalars()
+            .all()
+        )
         logger.info("self companies in warehouse: %d", len(self_companies))
         if not self_companies:
-            logger.warning("no self companies registered yet — run sync_invoices.py manually once first")
+            logger.warning(
+                "no self companies registered yet — run sync_invoices.py manually once first"
+            )
             return 0
 
         total_invoices = 0
@@ -132,8 +144,12 @@ def main() -> int:
             for c in self_companies:
                 for dt in ("1", "2"):
                     result = sync_one(
-                        client, s,
-                        tax_no=c.tax_no, data_type=dt, start=start, end=end,
+                        client,
+                        s,
+                        tax_no=c.tax_no,
+                        data_type=dt,
+                        start=start,
+                        end=end,
                     )
                     if result is None:
                         failures.append(f"{c.tax_no}/{dt}")
@@ -148,7 +164,9 @@ def main() -> int:
         "done · %d/%d 同步成功 · %d invoices, %d items · %.1fs",
         2 * len(self_companies) - len(failures),
         2 * len(self_companies),
-        total_invoices, total_items, elapsed,
+        total_invoices,
+        total_items,
+        elapsed,
     )
     if failures:
         logger.warning("失败: %s", ", ".join(failures))

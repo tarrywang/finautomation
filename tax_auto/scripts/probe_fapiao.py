@@ -137,7 +137,7 @@ def main() -> int:
     p.add_argument(
         "--params-json",
         default=None,
-        help="override default param set; JSON dict, e.g. '{\"taxNo\":\"...\"}'",
+        help='override default param set; JSON dict, e.g. \'{"taxNo":"..."}\'',
     )
     args = p.parse_args()
 
@@ -163,8 +163,7 @@ def main() -> int:
         body_bytes = json.dumps(params, ensure_ascii=False).encode("utf-8")
 
     content_md5 = (
-        base64.b64encode(hashlib.md5(body_bytes).digest()).decode("ascii")
-        if body_bytes else ""
+        base64.b64encode(hashlib.md5(body_bytes).digest()).decode("ascii") if body_bytes else ""
     )
     headers = {
         "Accept": "",

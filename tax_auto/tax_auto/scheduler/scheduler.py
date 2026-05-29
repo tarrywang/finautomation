@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import time
 from calendar import monthrange
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from sqlmodel import select
 
@@ -18,7 +18,8 @@ from tax_auto.core.worker import run_fetch
 from tax_auto.obs.logging import bind
 from tax_auto.storage.customers import list_active_customers
 from tax_auto.storage.db import session_scope
-from tax_auto.storage.models import Run, Session as SessionRow
+from tax_auto.storage.models import Run
+from tax_auto.storage.models import Session as SessionRow
 
 
 def month_to_range(month: str) -> tuple[str, str]:
@@ -32,7 +33,7 @@ def month_to_range(month: str) -> tuple[str, str]:
 def _too_recent_failure(tax_id: str) -> bool:
     """Skip a customer if it failed in the last cooldown_after_failure_min minutes."""
     s = get_settings()
-    cutoff = datetime.now(timezone.utc) - timedelta(minutes=s.cooldown_after_failure_min)
+    cutoff = datetime.now(UTC) - timedelta(minutes=s.cooldown_after_failure_min)
     with session_scope() as sess:
         recent = sess.exec(
             select(Run).where(Run.tax_id == tax_id).order_by(Run.started_at.desc()).limit(1)  # type: ignore[arg-type]
@@ -42,7 +43,7 @@ def _too_recent_failure(tax_id: str) -> bool:
 
 def _session_warning_due(tax_id: str, days: int = 6) -> bool:
     """True if last_login_at is older than `days` (we proactively warn)."""
-    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    cutoff = datetime.now(UTC) - timedelta(days=days)
     with session_scope() as sess:
         row = sess.get(SessionRow, tax_id)
     return bool(row and row.last_login_at and row.last_login_at < cutoff)
@@ -72,10 +73,14 @@ def run_for_month(month: str, tax_ids: list[str] | None = None) -> list[dict]:  
         for c in customers:
             if _too_recent_failure(c.tax_id):
                 log.warning(f"skipping {c.tax_id}: recent failure, in cooldown")
-                results.append({
-                    "tax_id": c.tax_id, "alias": c.alias,
-                    "state": "SKIPPED", "reason": "cooldown",
-                })
+                results.append(
+                    {
+                        "tax_id": c.tax_id,
+                        "alias": c.alias,
+                        "state": "SKIPPED",
+                        "reason": "cooldown",
+                    }
+                )
                 continue
 
             if _session_warning_due(c.tax_id):
@@ -83,12 +88,20 @@ def run_for_month(month: str, tax_ids: list[str] | None = None) -> list[dict]:  
 
             log.info(f"→ fetching for {c.alias} ({c.tax_id})")
             run_id, state, summary = run_fetch(
-                p, c.tax_id, date_from=date_from, date_to=date_to,
+                p,
+                c.tax_id,
+                date_from=date_from,
+                date_to=date_to,
             )
-            results.append({
-                "tax_id": c.tax_id, "alias": c.alias,
-                "run_id": run_id, "state": state.value, **summary,
-            })
+            results.append(
+                {
+                    "tax_id": c.tax_id,
+                    "alias": c.alias,
+                    "run_id": run_id,
+                    "state": state.value,
+                    **summary,
+                }
+            )
 
             # Polite delay between customers — avoid being flagged as bot
             if len(customers) > 1:
@@ -111,7 +124,7 @@ def _send_session_warning(tax_id: str) -> None:
             session_expiring_body(tax_id, ts),
             level="WARN",
         )
-    except Exception:  # noqa: BLE001
+    except Exception:
         pass
 
 
@@ -122,7 +135,8 @@ def _send_aggregate_summary(month: str, results: list[dict]) -> None:  # type: i
 
         rows = [
             (
-                r["tax_id"], r["state"],
+                r["tax_id"],
+                r["state"],
                 r.get("actual_count", 0),
                 r.get("error_class"),
             )
@@ -135,5 +149,5 @@ def _send_aggregate_summary(month: str, results: list[dict]) -> None:  # type: i
             run_summary_body(rows),
             level="CRITICAL" if has_failure else "INFO",
         )
-    except Exception:  # noqa: BLE001
+    except Exception:
         pass

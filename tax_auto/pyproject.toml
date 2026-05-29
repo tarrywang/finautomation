@@ -61,10 +61,22 @@ packages = ["tax_auto"]
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+exclude = [
+    # Legacy Playwright-era code; not under active CI gate. Migrate later.
+    "tax_auto/cli.py",
+    "tax_auto/core/state_machine.py",
+    "scripts/recon.py",
+]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "SIM", "RUF"]
-ignore = ["E501"]  # line length handled by formatter
+ignore = [
+    "E501",   # line length handled by formatter
+    "B008",   # FastAPI's Query(...) / Depends(...) in defaults — idiomatic, not a bug
+    "RUF001", # ambiguous Unicode in strings — we have lots of Chinese/CJK
+    "RUF002", # ambiguous Unicode in docstrings
+    "RUF003", # ambiguous Unicode in comments
+]
 
 [tool.mypy]
 python_version = "3.11"

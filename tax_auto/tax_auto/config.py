@@ -93,7 +93,7 @@ class Settings(BaseSettings):
     def db_path(self) -> Path:
         return self.runtime_dir / "metadata.db"
 
-    def resolve_secrets(self) -> "Settings":
+    def resolve_secrets(self) -> Settings:
         """Fill empty secrets from Keychain. Returns self for chaining."""
         if self.anthropic_api_key is None:
             kc = _read_keychain("tax_auto", "anthropic_api_key")

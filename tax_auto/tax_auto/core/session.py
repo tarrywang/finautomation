@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import fcntl
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from sqlmodel import select
@@ -15,7 +15,8 @@ from tax_auto.core.errors import SessionExpired, SessionLocked
 from tax_auto.core.state_machine import SessionState
 from tax_auto.obs.logging import bind
 from tax_auto.storage.db import session_scope
-from tax_auto.storage.models import Customer, Session as SessionRow
+from tax_auto.storage.models import Customer
+from tax_auto.storage.models import Session as SessionRow
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -29,7 +30,7 @@ TPASS_HOST_FRAGMENT = "tpass.shanghai.chinatax.gov.cn"
 
 
 def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _upsert_session(tax_id: str, user_data_dir: str, status: SessionState) -> None:
@@ -40,12 +41,14 @@ def _upsert_session(tax_id: str, user_data_dir: str, status: SessionState) -> No
         row = sess.get(SessionRow, tax_id)
         now = _utcnow()
         if row is None:
-            sess.add(SessionRow(
-                tax_id=tax_id,
-                user_data_dir=user_data_dir,
-                last_login_at=now if status == SessionState.FRESH else None,
-                status=status.value,
-            ))
+            sess.add(
+                SessionRow(
+                    tax_id=tax_id,
+                    user_data_dir=user_data_dir,
+                    last_login_at=now if status == SessionState.FRESH else None,
+                    status=status.value,
+                )
+            )
         else:
             if status == SessionState.FRESH:
                 row.last_login_at = now

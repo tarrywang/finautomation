@@ -94,7 +94,6 @@ SELECTORS: dict[str, dict[str, list[str]]] = {
         ]
     }
 }
-  # noqa: E501
 # fmt: on
 
 

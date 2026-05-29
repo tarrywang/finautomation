@@ -10,7 +10,6 @@ from __future__ import annotations
 import logging
 from datetime import datetime
 
-from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
@@ -132,11 +131,7 @@ def ingest_invoices(
 
         # Replace items wholesale (商品 lines)
         if pi.items:
-            s.execute(
-                InvoiceItem.__table__.delete().where(
-                    InvoiceItem.invoice_id == invoice_id
-                )
-            )
+            s.execute(InvoiceItem.__table__.delete().where(InvoiceItem.invoice_id == invoice_id))
             s.execute(
                 InvoiceItem.__table__.insert(),
                 [

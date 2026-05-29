@@ -90,9 +90,7 @@ class FapiaoClient:
             json.dumps(body, ensure_ascii=False).encode("utf-8") if body is not None else b""
         )
         content_md5 = (
-            base64.b64encode(hashlib.md5(body_bytes).digest()).decode("ascii")
-            if body_bytes
-            else ""
+            base64.b64encode(hashlib.md5(body_bytes).digest()).decode("ascii") if body_bytes else ""
         )
         headers = {
             "Accept": "",
@@ -111,14 +109,14 @@ class FapiaoClient:
         if method == "GET":
             resp = self._http.get(full_url, headers=headers, params=query)
         else:
-            resp = self._http.request(
-                method, full_url, headers=headers, content=body_bytes
-            )
+            resp = self._http.request(method, full_url, headers=headers, content=body_bytes)
         logger.debug("← %d", resp.status_code)
         try:
             return resp.status_code, resp.json()
-        except json.JSONDecodeError:
-            raise FapiaoError("NonJSON", f"non-JSON response (status={resp.status_code}): {resp.text[:200]}")
+        except json.JSONDecodeError as e:
+            raise FapiaoError(
+                "NonJSON", f"non-JSON response (status={resp.status_code}): {resp.text[:200]}"
+            ) from e
 
     # ─────────────────── public endpoints ───────────────────
 
@@ -129,9 +127,7 @@ class FapiaoClient:
         syncInvoicesRealTime works fine. Don't use as a health check in
         中间号 deployments. Use for cert-mode deployments only.
         """
-        status, body = self._sign_and_send(
-            "GET", "/api/base/onlineStatus", query={"taxNo": tax_no}
-        )
+        status, body = self._sign_and_send("GET", "/api/base/onlineStatus", query={"taxNo": tax_no})
         if status != 200:
             raise FapiaoError(
                 body.get("code", "Unknown"),
@@ -171,13 +167,16 @@ class FapiaoClient:
             body["invoiceStatus"] = invoice_status
 
         t0 = time.time()
-        status, raw = self._sign_and_send(
-            "POST", "/api/collect/syncInvoicesRealTime", body=body
-        )
+        status, raw = self._sign_and_send("POST", "/api/collect/syncInvoicesRealTime", body=body)
         elapsed = time.time() - t0
         logger.info(
             "syncInvoicesRealTime taxNo=%s dataType=%s [%s ~ %s] → status=%d (%.1fs)",
-            tax_no, data_type, billing_date_start, billing_date_end, status, elapsed,
+            tax_no,
+            data_type,
+            billing_date_start,
+            billing_date_end,
+            status,
+            elapsed,
         )
 
         if status != 200:
@@ -185,7 +184,10 @@ class FapiaoClient:
             if raw.get("code") == "NONE_DATA":
                 logger.info(
                     "syncInvoicesRealTime taxNo=%s dataType=%s [%s ~ %s] → 空结果 (NONE_DATA)",
-                    tax_no, data_type, billing_date_start, billing_date_end,
+                    tax_no,
+                    data_type,
+                    billing_date_start,
+                    billing_date_end,
                 )
                 return raw, {}
             raise FapiaoError(
@@ -200,7 +202,7 @@ class FapiaoClient:
 
         try:
             decoded = json.loads(base64.b64decode(b64))
-        except Exception as e:  # noqa: BLE001
-            raise FapiaoError("DecodeFailed", f"failed to base64-decode response: {e}")
+        except Exception as e:
+            raise FapiaoError("DecodeFailed", f"failed to base64-decode response: {e}") from e
 
         return raw, decoded

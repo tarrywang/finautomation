@@ -103,9 +103,7 @@ def main() -> int:
                 )
         except FapiaoError as e:
             logger.error("API failed: %s", e)
-            mark_sync_run_failed(
-                s, sr, code=e.code, message=e.message, request_id=e.request_id
-            )
+            mark_sync_run_failed(s, sr, code=e.code, message=e.message, request_id=e.request_id)
             s.commit()
             return 1
 
@@ -124,10 +122,12 @@ def main() -> int:
 
         # Estimate raw size for the SyncRun row
         import json as _json
+
         raw_size = len(_json.dumps(decoded, ensure_ascii=False).encode("utf-8"))
 
         mark_sync_run_complete(
-            s, sr,
+            s,
+            sr,
             invoice_count=inv_n,
             request_id=raw.get("requestId"),
             raw_size=raw_size,
@@ -136,7 +136,9 @@ def main() -> int:
 
         logger.info(
             "✅ done · %d invoices upserted, %d 商品 lines, raw=%dKB",
-            inv_n, item_n, raw_size // 1024,
+            inv_n,
+            item_n,
+            raw_size // 1024,
         )
     return 0
 

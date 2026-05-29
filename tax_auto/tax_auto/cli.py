@@ -41,12 +41,13 @@ def doctor() -> None:
             ver = b.version
             b.close()
         typer.echo(f"system_chrome     : ✓ {ver}")
-    except Exception as e:  # noqa: BLE001 — diagnostics only
+    except Exception as e:
         typer.echo(f"system_chrome     : ✗ {type(e).__name__}: {e}")
         raise typer.Exit(code=1) from e
 
 
 # Placeholders for W2+ commands — registered so `--help` shows the surface area.
+
 
 @app.command()
 def login(
@@ -99,7 +100,11 @@ def fetch_list(
     init_db()
     with sync_playwright() as p:
         run_id, state, summary = run_fetch(
-            p, tax_id, date_from=date_from, date_to=date_to, dry_run=True,
+            p,
+            tax_id,
+            date_from=date_from,
+            date_to=date_to,
+            dry_run=True,
         )
     typer.echo(f"run_id={run_id}  state={state.value}  summary={summary}")
     if state.value == "FAILED":
@@ -129,7 +134,11 @@ def fetch_run(
     init_db()
     with sync_playwright() as p:
         run_id, state, summary = run_fetch(
-            p, tax_id, date_from=date_from, date_to=date_to, dry_run=False,
+            p,
+            tax_id,
+            date_from=date_from,
+            date_to=date_to,
+            dry_run=False,
         )
     typer.echo(f"run_id={run_id}  state={state.value}  summary={summary}")
     if state.value == "FAILED":
@@ -203,7 +212,9 @@ def customer_list() -> None:
 def run_cmd(
     month: str = typer.Option(..., "--month", help="YYYY-MM"),
     tax_id: list[str] = typer.Option(  # noqa: B008
-        [], "--tax-id", help="restrict to specific customer(s); default = all active",
+        [],
+        "--tax-id",
+        help="restrict to specific customer(s); default = all active",
     ),
 ) -> None:
     """Run fetch for a month across customers (or a subset)."""

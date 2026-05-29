@@ -38,7 +38,7 @@ def _try_locators(page: Page, candidates: list[str], timeout_ms: int) -> Locator
         try:
             loc.wait_for(state="visible", timeout=timeout_ms)
             return loc
-        except Exception:  # noqa: BLE001 — Playwright TimeoutError + variants
+        except Exception:
             continue
     return None
 
@@ -64,13 +64,11 @@ def _resolve_via_vision(
         loc.wait_for(state="visible", timeout=3000)
         bind().info(f"[vision] {step}/{key} resolved → {sel!r}")
         return loc
-    except Exception:  # noqa: BLE001
+    except Exception:
         return None
 
 
-def safe_click(
-    page: Page, step: str, key: str, intent: str, timeout_ms: int = 8000
-) -> None:
+def safe_click(page: Page, step: str, key: str, intent: str, timeout_ms: int = 8000) -> None:
     """Click first matching candidate; fall back to vision on miss."""
     cands = get_candidates(step, key)
     loc = _try_locators(page, cands, timeout_ms)

@@ -41,14 +41,19 @@ def escalate_resolve(
     try:
         _CALL_COUNTER[run_id] += 1
         decision = resolve_with_claude(
-            page, step, intent, failed_selectors, run_id, model=s.llm_model_primary,
+            page,
+            step,
+            intent,
+            failed_selectors,
+            run_id,
+            model=s.llm_model_primary,
         )
         if decision.is_blocked:
             return decision
         if decision.actions and decision.actions[0].confidence >= 0.5:
             return decision
         log.info("[escalation] Sonnet confidence low, escalating to Opus")
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         log.warning(f"[escalation] Sonnet failed: {e!s}, escalating to Opus")
 
     # Tier 2: Opus
@@ -58,10 +63,15 @@ def escalate_resolve(
     try:
         _CALL_COUNTER[run_id] += 1
         decision = resolve_with_claude(
-            page, step, intent, failed_selectors, run_id, model=s.llm_model_fallback,
+            page,
+            step,
+            intent,
+            failed_selectors,
+            run_id,
+            model=s.llm_model_fallback,
         )
         return decision
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         log.error(f"[escalation] Opus also failed: {e!s} → human needed")
         return None
 

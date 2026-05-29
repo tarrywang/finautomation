@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from datetime import UTC
 from pathlib import Path
 
 from playwright.sync_api import sync_playwright
@@ -28,7 +29,6 @@ from playwright.sync_api import sync_playwright
 from tax_auto.config import get_settings
 from tax_auto.core.browser import make_persistent_context
 from tax_auto.core.session import LOGIN_URL
-
 
 # ── The injected helper. addInitScript runs this on EVERY page/frame load. ──
 # Keep it self-contained, no external deps.
@@ -218,8 +218,9 @@ def _ensure_recon_dir() -> Path:
     return d
 
 
-def _write_artifact(label: str, dump: dict | None, html: str, url: str,
-                    screenshot_bytes: bytes, snapshot_only: bool) -> None:
+def _write_artifact(
+    label: str, dump: dict | None, html: str, url: str, screenshot_bytes: bytes, snapshot_only: bool
+) -> None:
     recon = _ensure_recon_dir()
     (recon / f"{label}.html").write_text(html, encoding="utf-8")
     (recon / f"{label}.png").write_bytes(screenshot_bytes)
@@ -228,6 +229,7 @@ def _write_artifact(label: str, dump: dict | None, html: str, url: str,
 
     # Render a tidy markdown record next to the artifacts
     import json
+
     md = [
         f"# {label}",
         "",
@@ -262,11 +264,11 @@ def _check_session(page_url: str) -> dict:  # type: ignore[type-arg]
     """Heuristic same as core.session.is_session_alive: if URL is on tpass.*, we're logged out."""
     alive = "tpass.shanghai.chinatax.gov.cn" not in (page_url or "")
     log = _ensure_recon_dir() / "session_lifetime_log.txt"
-    from datetime import datetime, timezone
-    ts = datetime.now(timezone.utc).isoformat()
+    from datetime import datetime
+
+    ts = datetime.now(UTC).isoformat()
     log.write_text(
-        (log.read_text() if log.exists() else "")
-        + f"{ts}  alive={alive}  url={page_url}\n",
+        (log.read_text() if log.exists() else "") + f"{ts}  alive={alive}  url={page_url}\n",
         encoding="utf-8",
     )
     return {"alive": alive, "url": page_url, "ts": ts}
@@ -275,129 +277,131 @@ def _check_session(page_url: str) -> dict:  # type: ignore[type-arg]
 def main() -> int:
     parser = argparse.ArgumentParser(description="W1 DOM recon companion")
     parser.add_argument("--tax-id", required=True, help="统一社会信用代码")
-    parser.add_argument("--landing-url", default=LOGIN_URL,
-                        help=f"start URL (default: {LOGIN_URL})")
+    parser.add_argument(
+        "--landing-url", default=LOGIN_URL, help=f"start URL (default: {LOGIN_URL})"
+    )
     args = parser.parse_args()
 
     _ensure_recon_dir()
     print(f"recon output dir: {get_settings().runtime_dir / 'recon'}")
     print("Press Ctrl-C in this terminal, OR close the browser window, to exit.")
 
-    with sync_playwright() as p:
-        with make_persistent_context(
-            p, args.tax_id, headless=False,
+    with (
+        sync_playwright() as p,
+        make_persistent_context(
+            p,
+            args.tax_id,
+            headless=False,
             # Auto-open DevTools for EVERY tab/window. E-tax bureau opens
             # 我要办税 etc. in popup windows; this ensures the console is
             # already open there so user can run tarry.save() immediately.
             extra_args=["--auto-open-devtools-for-tabs"],
-        ) as ctx:
-            # 1. Inject tarry() helper on every navigation
-            ctx.add_init_script(_TARRY_HELPER_JS)
+        ) as ctx,
+    ):
+        # 1. Inject tarry() helper on every navigation
+        ctx.add_init_script(_TARRY_HELPER_JS)
 
-            # 2. Set up Python-side bindings so tarry.save()/check_session() can reach disk
-            _MAX_HTML_BYTES = 5_000_000  # 5 MB safety cap on stored HTML
+        # 2. Set up Python-side bindings so tarry.save()/check_session() can reach disk
+        _MAX_HTML_BYTES = 5_000_000  # 5 MB safety cap on stored HTML
 
-            def _save_binding(source, payload):  # type: ignore[no-untyped-def]
-                """Receive a tiny payload from JS, then pull HTML + screenshot
-                via Playwright API directly (avoids passing megabytes through
-                the CDP binding channel — that crashed the Node driver before).
-                """
-                try:
-                    pg = source["page"]
-                    label = payload["label"]
-                    dump = payload.get("dump")
-                    mode = payload.get("mode", "save")
-                    snapshot_only = mode == "snapshot"
-                    url = pg.url
-
-                    # Pull HTML via dedicated CDP roundtrip (streamed by Playwright)
-                    try:
-                        html = pg.content()
-                    except Exception as e:  # noqa: BLE001
-                        html = f"<!-- page.content() failed: {e} -->"
-                    if len(html) > _MAX_HTML_BYTES:
-                        html = (
-                            html[:_MAX_HTML_BYTES]
-                            + f"\n<!-- truncated from {len(html)} bytes -->"
-                        )
-
-                    # Pull screenshot the same way (own CDP roundtrip)
-                    try:
-                        shot = pg.screenshot(full_page=False)
-                    except Exception as e:  # noqa: BLE001
-                        print(f"  [warn] screenshot failed for {label}: {e}")
-                        shot = b""
-
-                    _write_artifact(label, dump, html, url, shot, snapshot_only)
-                    print(f"  ✓ artifact saved: {label} (mode={mode})")
-                    return True
-                except Exception as e:  # noqa: BLE001 — never propagate to driver
-                    print(f"  [error] _save_binding crashed: {type(e).__name__}: {e}")
-                    return False
-
-            def _check_session_binding(source, _payload=None):  # type: ignore[no-untyped-def]
+        def _save_binding(source, payload):  # type: ignore[no-untyped-def]
+            """Receive a tiny payload from JS, then pull HTML + screenshot
+            via Playwright API directly (avoids passing megabytes through
+            the CDP binding channel — that crashed the Node driver before).
+            """
+            try:
                 pg = source["page"]
-                return _check_session(pg.url)
+                label = payload["label"]
+                dump = payload.get("dump")
+                mode = payload.get("mode", "save")
+                snapshot_only = mode == "snapshot"
+                url = pg.url
 
-            ctx.expose_binding("__tarrySave", _save_binding)
-            ctx.expose_binding("__tarryCheckSession", _check_session_binding)
+                # Pull HTML via dedicated CDP roundtrip (streamed by Playwright)
+                try:
+                    html = pg.content()
+                except Exception as e:
+                    html = f"<!-- page.content() failed: {e} -->"
+                if len(html) > _MAX_HTML_BYTES:
+                    html = html[:_MAX_HTML_BYTES] + f"\n<!-- truncated from {len(html)} bytes -->"
 
-            # 3. Arm CDP setSkipAllPauses on EVERY page (initial + popups).
-            #    Each page gets ONE CDP session (not per-frame — that crashed
-            #    the Node driver previously with iframe-heavy SPAs).
-            cdp_sessions: dict[str, object] = {}
+                # Pull screenshot the same way (own CDP roundtrip)
+                try:
+                    shot = pg.screenshot(full_page=False)
+                except Exception as e:
+                    print(f"  [warn] screenshot failed for {label}: {e}")
+                    shot = b""
 
-            def _attach_anti_debug(pg) -> None:  # type: ignore[no-untyped-def]
-                key = str(id(pg))
-                if key in cdp_sessions:
+                _write_artifact(label, dump, html, url, shot, snapshot_only)
+                print(f"  ✓ artifact saved: {label} (mode={mode})")
+                return True
+            except Exception as e:
+                print(f"  [error] _save_binding crashed: {type(e).__name__}: {e}")
+                return False
+
+        def _check_session_binding(source, _payload=None):  # type: ignore[no-untyped-def]
+            pg = source["page"]
+            return _check_session(pg.url)
+
+        ctx.expose_binding("__tarrySave", _save_binding)
+        ctx.expose_binding("__tarryCheckSession", _check_session_binding)
+
+        # 3. Arm CDP setSkipAllPauses on EVERY page (initial + popups).
+        #    Each page gets ONE CDP session (not per-frame — that crashed
+        #    the Node driver previously with iframe-heavy SPAs).
+        cdp_sessions: dict[str, object] = {}
+
+        def _attach_anti_debug(pg) -> None:  # type: ignore[no-untyped-def]
+            key = str(id(pg))
+            if key in cdp_sessions:
+                return
+            try:
+                cdp = ctx.new_cdp_session(pg)
+                cdp.send("Debugger.enable")
+                cdp.send("Debugger.setSkipAllPauses", {"skip": True})
+                cdp_sessions[key] = cdp
+                print(f"  ✓ V8 setSkipAllPauses armed on {pg.url or '(blank)'}")
+            except Exception as e:
+                print(f"  [warn] CDP arm failed for {pg.url}: {e}")
+
+            # Re-arm on page load (not per-frame!) in case the flag was reset.
+            def _rearm() -> None:
+                cdp = cdp_sessions.get(key)
+                if cdp is None:
                     return
                 try:
-                    cdp = ctx.new_cdp_session(pg)
-                    cdp.send("Debugger.enable")
                     cdp.send("Debugger.setSkipAllPauses", {"skip": True})
-                    cdp_sessions[key] = cdp
-                    print(f"  ✓ V8 setSkipAllPauses armed on {pg.url or '(blank)'}")
-                except Exception as e:  # noqa: BLE001
-                    print(f"  [warn] CDP arm failed for {pg.url}: {e}")
+                except Exception:
+                    pass
 
-                # Re-arm on page load (not per-frame!) in case the flag was reset.
-                def _rearm() -> None:
-                    cdp = cdp_sessions.get(key)
-                    if cdp is None:
-                        return
-                    try:
-                        cdp.send("Debugger.setSkipAllPauses", {"skip": True})
-                    except Exception:  # noqa: BLE001
-                        pass
+            pg.on("load", lambda: _rearm())
 
-                pg.on("load", lambda: _rearm())
+        # 4. Watch for popups / new tabs opened by the site (e.g. 我要办税)
+        def _on_new_page(pg) -> None:  # type: ignore[no-untyped-def]
+            print(f"\n→ NEW PAGE opened: {pg.url or '(blank, navigating...)'}")
+            print("  DevTools should auto-open here; tarry helper auto-injects.")
+            _attach_anti_debug(pg)
 
-            # 4. Watch for popups / new tabs opened by the site (e.g. 我要办税)
-            def _on_new_page(pg) -> None:  # type: ignore[no-untyped-def]
-                print(f"\n→ NEW PAGE opened: {pg.url or '(blank, navigating...)'}")
-                print("  DevTools should auto-open here; tarry helper auto-injects.")
-                _attach_anti_debug(pg)
+        ctx.on("page", _on_new_page)
 
-            ctx.on("page", _on_new_page)
+        # 5. Open landing page
+        page = ctx.new_page()
+        _attach_anti_debug(page)
+        page.goto(args.landing_url)
 
-            # 5. Open landing page
-            page = ctx.new_page()
-            _attach_anti_debug(page)
-            page.goto(args.landing_url)
+        print("\n→ Browser is open. Walk the 7-step flow.")
+        print("→ Open DevTools (Cmd-Opt-I), then in the Console try:")
+        print("     tarry()")
+        print("     tarry.save('step_3_input_date_from')")
+        print("     tarry.snapshot('query_result_page')")
+        print("     tarry.check_session()")
+        print("\nWaiting for the browser to be closed...\n")
 
-            print("\n→ Browser is open. Walk the 7-step flow.")
-            print("→ Open DevTools (Cmd-Opt-I), then in the Console try:")
-            print("     tarry()")
-            print("     tarry.save('step_3_input_date_from')")
-            print("     tarry.snapshot('query_result_page')")
-            print("     tarry.check_session()")
-            print("\nWaiting for the browser to be closed...\n")
-
-            # Block until the user closes the page/window
-            try:
-                page.wait_for_event("close", timeout=0)
-            except KeyboardInterrupt:
-                print("\nCtrl-C received, closing browser.")
+        # Block until the user closes the page/window
+        try:
+            page.wait_for_event("close", timeout=0)
+        except KeyboardInterrupt:
+            print("\nCtrl-C received, closing browser.")
     print("✓ recon session ended.")
     return 0
 

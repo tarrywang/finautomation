@@ -8,7 +8,7 @@ from __future__ import annotations
 import base64
 import json
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -87,20 +87,27 @@ def resolve_with_claude(
 
     user_msg = build_user_message(step, intent, failed_selectors)
 
-    started = datetime.now(timezone.utc)
+    started = datetime.now(UTC)
     msg = _client().messages.create(
         model=model,
         max_tokens=500,
         system=SYSTEM_PROMPT,
-        messages=[{
-            "role": "user",
-            "content": [
-                {"type": "image", "source": {
-                    "type": "base64", "media_type": "image/png", "data": b64,
-                }},
-                {"type": "text", "text": user_msg},
-            ],
-        }],
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": "image/png",
+                            "data": b64,
+                        },
+                    },
+                    {"type": "text", "text": user_msg},
+                ],
+            }
+        ],
     )
 
     raw_text = "".join(b.text for b in msg.content if hasattr(b, "text"))
@@ -125,8 +132,10 @@ def resolve_with_claude(
         decision = Decision.model_validate(data)
         log_entry["parsed"] = decision.model_dump()
         _append_log(run_id, log_entry)
-        log.info(f"[vision] {step} model={model} cost=¢{cost} actions={len(decision.actions)} "
-                 f"blocked={decision.is_blocked}")
+        log.info(
+            f"[vision] {step} model={model} cost=¢{cost} actions={len(decision.actions)} "
+            f"blocked={decision.is_blocked}"
+        )
         return decision
     except Exception as e:
         log_entry["parse_error"] = f"{type(e).__name__}: {e}"

@@ -61,7 +61,7 @@ def parse_file(path: Path) -> InvoiceMeta:
             return _parse_pdf(path)
         if suffix == ".ofd":
             return _parse_ofd(path)
-    except Exception as e:  # noqa: BLE001 — best-effort parser
+    except Exception as e:
         bind().warning(f"parse_invoice failed for {path.name}: {type(e).__name__}: {e}")
     return InvoiceMeta()
 

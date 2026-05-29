@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import subprocess
 import sys
-from pathlib import Path
 
 from tax_auto.config import get_settings
 

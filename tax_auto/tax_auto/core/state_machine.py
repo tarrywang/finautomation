@@ -26,43 +26,79 @@ class RunState(str, Enum):
 class SessionState(str, Enum):
     """Browser session lifecycle per tax_id."""
 
-    FRESH = "FRESH"       # just logged in, never used
-    VALID = "VALID"       # confirmed working
-    LOCKED = "LOCKED"     # another worker has it
-    EXPIRED = "EXPIRED"   # cookies invalid, needs re-login
+    FRESH = "FRESH"  # just logged in, never used
+    VALID = "VALID"  # confirmed working
+    LOCKED = "LOCKED"  # another worker has it
+    EXPIRED = "EXPIRED"  # cookies invalid, needs re-login
 
 
 # ── Allowed Run transitions ────────────────────────────────────────
 # Encode as adjacency set. Anything not listed is rejected.
 _RUN_TRANSITIONS: dict[RunState, frozenset[RunState]] = {
     RunState.PENDING: frozenset({RunState.AUTHENTICATING, RunState.FAILED}),
-    RunState.AUTHENTICATING: frozenset({
-        RunState.NAVIGATING, RunState.NEEDS_HUMAN, RunState.FAILED,
-    }),
-    RunState.NAVIGATING: frozenset({
-        RunState.QUERYING, RunState.VISION_FALLBACK, RunState.NEEDS_HUMAN, RunState.FAILED,
-    }),
-    RunState.QUERYING: frozenset({
-        RunState.DOWNLOADING, RunState.VISION_FALLBACK, RunState.NEEDS_HUMAN, RunState.FAILED,
-        RunState.DONE,  # empty result is a valid done state
-    }),
-    RunState.DOWNLOADING: frozenset({
-        RunState.POLLING, RunState.VISION_FALLBACK, RunState.NEEDS_HUMAN, RunState.FAILED,
-    }),
-    RunState.POLLING: frozenset({
-        RunState.ARCHIVING, RunState.VISION_FALLBACK, RunState.NEEDS_HUMAN, RunState.FAILED,
-    }),
+    RunState.AUTHENTICATING: frozenset(
+        {
+            RunState.NAVIGATING,
+            RunState.NEEDS_HUMAN,
+            RunState.FAILED,
+        }
+    ),
+    RunState.NAVIGATING: frozenset(
+        {
+            RunState.QUERYING,
+            RunState.VISION_FALLBACK,
+            RunState.NEEDS_HUMAN,
+            RunState.FAILED,
+        }
+    ),
+    RunState.QUERYING: frozenset(
+        {
+            RunState.DOWNLOADING,
+            RunState.VISION_FALLBACK,
+            RunState.NEEDS_HUMAN,
+            RunState.FAILED,
+            RunState.DONE,  # empty result is a valid done state
+        }
+    ),
+    RunState.DOWNLOADING: frozenset(
+        {
+            RunState.POLLING,
+            RunState.VISION_FALLBACK,
+            RunState.NEEDS_HUMAN,
+            RunState.FAILED,
+        }
+    ),
+    RunState.POLLING: frozenset(
+        {
+            RunState.ARCHIVING,
+            RunState.VISION_FALLBACK,
+            RunState.NEEDS_HUMAN,
+            RunState.FAILED,
+        }
+    ),
     RunState.ARCHIVING: frozenset({RunState.DONE, RunState.FAILED}),
     # Vision fallback returns to the state it interrupted — encoded by enabling everything
     # that can lead INTO vision fallback. Caller tracks the prior state.
-    RunState.VISION_FALLBACK: frozenset({
-        RunState.NAVIGATING, RunState.QUERYING, RunState.DOWNLOADING, RunState.POLLING,
-        RunState.NEEDS_HUMAN, RunState.FAILED,
-    }),
-    RunState.NEEDS_HUMAN: frozenset({
-        RunState.NAVIGATING, RunState.QUERYING, RunState.DOWNLOADING, RunState.POLLING,
-        RunState.ARCHIVING, RunState.FAILED,
-    }),
+    RunState.VISION_FALLBACK: frozenset(
+        {
+            RunState.NAVIGATING,
+            RunState.QUERYING,
+            RunState.DOWNLOADING,
+            RunState.POLLING,
+            RunState.NEEDS_HUMAN,
+            RunState.FAILED,
+        }
+    ),
+    RunState.NEEDS_HUMAN: frozenset(
+        {
+            RunState.NAVIGATING,
+            RunState.QUERYING,
+            RunState.DOWNLOADING,
+            RunState.POLLING,
+            RunState.ARCHIVING,
+            RunState.FAILED,
+        }
+    ),
     # Terminal states
     RunState.DONE: frozenset(),
     RunState.FAILED: frozenset(),

@@ -13,13 +13,13 @@ from fastapi.responses import HTMLResponse, StreamingResponse
 from sqlalchemy import Select, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
+from ...warehouse.models import Company, Invoice, User
 from ..auth import (
     assert_can_view,
     get_current_user,
     get_user_scope_taxnos,
 )
 from ..deps import get_db, templates
-from ...warehouse.models import Company, Invoice, InvoiceItem, User
 
 router = APIRouter(prefix="/invoices")
 
@@ -36,6 +36,7 @@ def _apply_scope(stmt: Select, user: User, db: Session) -> Select:
 
 
 # ─────────────────────── Filter parsing ───────────────────────
+
 
 def _parse_csv_list(v: str | None) -> list[str]:
     if not v:
@@ -74,10 +75,8 @@ def _qs_drop(
     If value is given, drops only the (key, value) tuple.
     """
     from urllib.parse import urlencode
-    kept = [
-        (k, v) for k, v in pairs
-        if not (k == key and (value is None or v == value))
-    ]
+
+    kept = [(k, v) for k, v in pairs if not (k == key and (value is None or v == value))]
     return urlencode(kept)
 
 
@@ -161,9 +160,7 @@ def _fetch_filter_options(db: Session, user: User) -> dict[str, Any]:
 
     base_distinct = select(Invoice.fppz).where(Invoice.fppz.isnot(None))
     base_distinct = _apply_scope(base_distinct, user, db)
-    fppz_vals = [r[0] for r in db.execute(
-        base_distinct.distinct().order_by(Invoice.fppz)
-    ).all()]
+    fppz_vals = [r[0] for r in db.execute(base_distinct.distinct().order_by(Invoice.fppz)).all()]
 
     fpzt_q = _apply_scope(select(Invoice.fpzt).where(Invoice.fpzt.isnot(None)), user, db)
     fpzt_vals = [r[0] for r in db.execute(fpzt_q.distinct().order_by(Invoice.fpzt)).all()]
@@ -181,12 +178,13 @@ def _fetch_filter_options(db: Session, user: User) -> dict[str, Any]:
 
 # ─────────────────────── List page ───────────────────────
 
+
 @router.get("", response_class=HTMLResponse)
 def invoices_list(
     request: Request,
     db: Annotated[Session, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],
-    tax_no: list[str] = Query(default=[]),     # multi-value
+    tax_no: list[str] = Query(default=[]),  # multi-value
     data_type: str | None = None,
     # Accept all numeric/date params as strings so HTML-form blanks ("") don't 422;
     # convert below with _opt_date / _opt_float / _opt_int.
@@ -195,12 +193,12 @@ def invoices_list(
     # Multi-value filters: accept either ?fppz=A&fppz=B or ?fppz=A,B
     fppz: list[str] = Query(default=[]),
     fpzt: list[str] = Query(default=[]),
-    xfsbh: str | None = None,                   # like
+    xfsbh: str | None = None,  # like
     jshj_min: str | None = None,
     jshj_max: str | None = None,
     tdywlx: list[str] = Query(default=[]),
     deductible: list[str] = Query(default=[]),
-    since_hours: str | None = None,             # shortcut: invoices first ingested within last N hours
+    since_hours: str | None = None,  # shortcut: invoices first ingested within last N hours
     page: int = 1,
     page_size: int = 50,
     sort: str = "kprq_desc",
@@ -218,11 +216,17 @@ def invoices_list(
     data_type_v = data_type or None  # empty string → None
 
     filter_kwargs = dict(
-        tax_nos=tax_no, data_type=data_type_v,
-        kprq_from=kprq_from_d, kprq_to=kprq_to_d,
-        fppz_in=fppz_in, fpzt_in=fpzt_in,
-        xfsbh_like=xfsbh, jshj_min=jshj_min_f, jshj_max=jshj_max_f,
-        tdywlx_in=tdywlx_in, deductible_in=deductible_in,
+        tax_nos=tax_no,
+        data_type=data_type_v,
+        kprq_from=kprq_from_d,
+        kprq_to=kprq_to_d,
+        fppz_in=fppz_in,
+        fpzt_in=fpzt_in,
+        xfsbh_like=xfsbh,
+        jshj_min=jshj_min_f,
+        jshj_max=jshj_max_f,
+        tdywlx_in=tdywlx_in,
+        deductible_in=deductible_in,
         since_hours=since_hours_i,
     )
     base = _apply_scope(_build_filters(select(Invoice), **filter_kwargs), user, db)
@@ -239,10 +243,11 @@ def invoices_list(
             ),
             **filter_kwargs,
         ),
-        user, db,
+        user,
+        db,
     )
     sums = db.execute(sums_stmt).first()
-    sum_jshj, sum_se = (sums or (0, 0))
+    sum_jshj, sum_se = sums or (0, 0)
 
     # Order
     sort_col = {
@@ -254,9 +259,11 @@ def invoices_list(
 
     page = max(1, page)
     page_size = min(max(page_size, 10), 200)
-    rows = db.execute(
-        base.order_by(sort_col).offset((page - 1) * page_size).limit(page_size)
-    ).scalars().all()
+    rows = (
+        db.execute(base.order_by(sort_col).offset((page - 1) * page_size).limit(page_size))
+        .scalars()
+        .all()
+    )
 
     total_pages = max(1, (total_count + page_size - 1) // page_size)
     opts = _fetch_filter_options(db, user)
@@ -294,6 +301,7 @@ def invoices_list(
     qs_pairs.append(("page_size", str(page_size)))
 
     from urllib.parse import urlencode
+
     qs_base = urlencode(qs_pairs)
 
     # ── Active filter chips ──
@@ -304,11 +312,13 @@ def invoices_list(
     chips: list[dict[str, str]] = []
 
     def _chip(label: str, text: str, drop_key: str, drop_value: str | None = None) -> None:
-        chips.append({
-            "label": label,
-            "text": text,
-            "remove_url": f"/invoices?{_qs_drop(qs_pairs, drop_key, drop_value)}",
-        })
+        chips.append(
+            {
+                "label": label,
+                "text": text,
+                "remove_url": f"/invoices?{_qs_drop(qs_pairs, drop_key, drop_value)}",
+            }
+        )
 
     for tn in tax_no:
         _chip("我方", tax_name.get(tn, tn), "tax_no", tn)
@@ -350,10 +360,12 @@ def invoices_list(
             # Filter form state. Multi-value fields are list[str] so templates
             # use `{% if v in current.fppz %}` instead of `.split(",")`.
             "current": {
-                "tax_no": tax_no, "data_type": data_type_v,
+                "tax_no": tax_no,
+                "data_type": data_type_v,
                 "kprq_from": kprq_from_d.isoformat() if kprq_from_d else "",
                 "kprq_to": kprq_to_d.isoformat() if kprq_to_d else "",
-                "fppz": fppz_in, "fpzt": fpzt_in,
+                "fppz": fppz_in,
+                "fpzt": fpzt_in,
                 "xfsbh": xfsbh or "",
                 "jshj_min": jshj_min_f if jshj_min_f is not None else "",
                 "jshj_max": jshj_max_f if jshj_max_f is not None else "",
@@ -370,6 +382,7 @@ def invoices_list(
 
 
 # ─────────────────────── CSV export ───────────────────────
+
 
 @router.get("/export.csv")
 def invoices_export_csv(
@@ -391,38 +404,71 @@ def invoices_export_csv(
     base = _apply_scope(
         _build_filters(
             select(Invoice).order_by(Invoice.kprq.desc().nullslast()),
-            tax_nos=tax_no, data_type=data_type or None,
-            kprq_from=_opt_date(kprq_from), kprq_to=_opt_date(kprq_to),
-            fppz_in=_multi_values(fppz), fpzt_in=_multi_values(fpzt),
-            xfsbh_like=xfsbh, jshj_min=_opt_float(jshj_min), jshj_max=_opt_float(jshj_max),
+            tax_nos=tax_no,
+            data_type=data_type or None,
+            kprq_from=_opt_date(kprq_from),
+            kprq_to=_opt_date(kprq_to),
+            fppz_in=_multi_values(fppz),
+            fpzt_in=_multi_values(fpzt),
+            xfsbh_like=xfsbh,
+            jshj_min=_opt_float(jshj_min),
+            jshj_max=_opt_float(jshj_max),
             tdywlx_in=_multi_values(tdywlx),
             deductible_in=_multi_values(deductible),
             since_hours=_opt_int(since_hours),
         ),
-        user, db,
+        user,
+        db,
     )
     invs = db.execute(base).scalars().all()
 
     buf = io.StringIO()
     buf.write("﻿")  # BOM so Excel reads as UTF-8
     writer = csv.writer(buf)
-    writer.writerow([
-        "我方税号", "进/销项", "数电号码", "开票日期",
-        "销方税号", "销方名称", "购方税号", "购方名称",
-        "发票品种", "发票状态", "价税合计", "金额", "税额", "税率",
-        "特定业务类型", "勾选状态", "备注",
-    ])
+    writer.writerow(
+        [
+            "我方税号",
+            "进/销项",
+            "数电号码",
+            "开票日期",
+            "销方税号",
+            "销方名称",
+            "购方税号",
+            "购方名称",
+            "发票品种",
+            "发票状态",
+            "价税合计",
+            "金额",
+            "税额",
+            "税率",
+            "特定业务类型",
+            "勾选状态",
+            "备注",
+        ]
+    )
     dt_label = {"1": "进项", "2": "销项"}
     for inv in invs:
-        writer.writerow([
-            inv.tax_no, dt_label.get(inv.data_type, inv.data_type),
-            inv.sdfphm or "", inv.kprq.strftime("%Y-%m-%d %H:%M:%S") if inv.kprq else "",
-            inv.xfsbh or "", inv.xfmc or "",
-            inv.gfsbh or "", inv.gfmc or "",
-            inv.fppz or "", inv.fpzt or "",
-            inv.jshj or "", inv.je or "", inv.se or "", inv.slv or "",
-            inv.tdywlx or "", inv.deductible or "", inv.bz or "",
-        ])
+        writer.writerow(
+            [
+                inv.tax_no,
+                dt_label.get(inv.data_type, inv.data_type),
+                inv.sdfphm or "",
+                inv.kprq.strftime("%Y-%m-%d %H:%M:%S") if inv.kprq else "",
+                inv.xfsbh or "",
+                inv.xfmc or "",
+                inv.gfsbh or "",
+                inv.gfmc or "",
+                inv.fppz or "",
+                inv.fpzt or "",
+                inv.jshj or "",
+                inv.je or "",
+                inv.se or "",
+                inv.slv or "",
+                inv.tdywlx or "",
+                inv.deductible or "",
+                inv.bz or "",
+            ]
+        )
 
     csv_bytes = buf.getvalue().encode("utf-8")
     filename = f"invoices_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
@@ -435,6 +481,7 @@ def invoices_export_csv(
 
 # ─────────────────────── Detail page ───────────────────────
 
+
 @router.get("/{invoice_id}", response_class=HTMLResponse)
 def invoice_detail(
     request: Request,
@@ -443,9 +490,7 @@ def invoice_detail(
     user: Annotated[User, Depends(get_current_user)],
 ) -> HTMLResponse:
     inv = db.execute(
-        select(Invoice)
-        .options(selectinload(Invoice.items))
-        .where(Invoice.id == invoice_id)
+        select(Invoice).options(selectinload(Invoice.items)).where(Invoice.id == invoice_id)
     ).scalar_one_or_none()
     if not inv:
         return HTMLResponse("<h1>404 — invoice not found</h1>", status_code=404)

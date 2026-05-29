@@ -19,11 +19,11 @@ Dependencies (used by routes):
 from __future__ import annotations
 
 import logging
-import os
 import time
 from collections import defaultdict, deque
-from datetime import datetime, timedelta, timezone
-from typing import Annotated, Awaitable, Callable
+from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime, timedelta
+from typing import Annotated, ClassVar
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
@@ -35,9 +35,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from ..warehouse.models import User, UserCompanyAccess
 from .deps import get_db, templates
 from .security import (
-    check_password_policy,
     generate_csrf_token,
-    hash_password,
     verify_password,
 )
 
@@ -54,10 +52,10 @@ _PUBLIC_PATHS: set[str] = {"/login", "/logout", "/healthz"}
 _PUBLIC_PREFIXES: tuple[str, ...] = ("/static/",)
 
 # Login rate-limit config
-_MAX_LOGIN_ATTEMPTS_PER_IP = 10          # 10 attempts
-_LOGIN_RATE_WINDOW_S = 5 * 60            # in 5 min
-_MAX_USER_FAILED = 5                     # user fails 5x → lock
-_USER_LOCKOUT_DURATION_S = 30 * 60       # 30 min
+_MAX_LOGIN_ATTEMPTS_PER_IP = 10  # 10 attempts
+_LOGIN_RATE_WINDOW_S = 5 * 60  # in 5 min
+_MAX_USER_FAILED = 5  # user fails 5x → lock
+_USER_LOCKOUT_DURATION_S = 30 * 60  # 30 min
 
 
 # ─── In-memory IP rate limiter ──────────────────────────────────────
@@ -80,6 +78,7 @@ def _record_ip_attempt(ip: str) -> None:
 
 
 # ─── Helpers ─────────────────────────────────────────────────────────
+
 
 def _client_ip(request: Request) -> str:
     fwd = request.headers.get("x-forwarded-for")
@@ -104,6 +103,7 @@ def _logged_in_uid(request: Request) -> int | None:
 
 # ─── Middleware: redirect unauthenticated to /login ──────────────────
 
+
 class AuthRedirectMiddleware(BaseHTTPMiddleware):
     async def dispatch(
         self,
@@ -115,9 +115,7 @@ class AuthRedirectMiddleware(BaseHTTPMiddleware):
         next_url = request.url.path
         if request.url.query:
             next_url += f"?{request.url.query}"
-        return RedirectResponse(
-            url=f"/login?next={quote(next_url, safe='')}", status_code=302
-        )
+        return RedirectResponse(url=f"/login?next={quote(next_url, safe='')}", status_code=302)
 
 
 class LoadCurrentUserMiddleware(BaseHTTPMiddleware):
@@ -133,6 +131,7 @@ class LoadCurrentUserMiddleware(BaseHTTPMiddleware):
         uid = _logged_in_uid(request)
         if uid is not None:
             from ..warehouse.session import get_sessionmaker
+
             sm = get_sessionmaker()
             with sm() as s:
                 user = s.get(User, uid)
@@ -149,6 +148,7 @@ class LoadCurrentUserMiddleware(BaseHTTPMiddleware):
 
 
 # ─── Dependencies for routes ─────────────────────────────────────────
+
 
 def get_current_user(
     request: Request,
@@ -170,10 +170,12 @@ def get_current_user(
 
 def require_role(*allowed_roles: str) -> Callable[..., User]:
     """Return a dependency that gates on role(s)."""
+
     def dep(user: Annotated[User, Depends(get_current_user)]) -> User:
         if user.role not in allowed_roles:
             raise HTTPException(status_code=403, detail="无权访问该资源")
         return user
+
     return dep
 
 
@@ -181,9 +183,11 @@ def get_user_scope_taxnos(user: User, db: Session) -> set[str] | None:
     """Tax numbers the user can access. None = admin (all)."""
     if user.role == "admin":
         return None
-    rows = db.execute(
-        select(UserCompanyAccess.tax_no).where(UserCompanyAccess.user_id == user.id)
-    ).scalars().all()
+    rows = (
+        db.execute(select(UserCompanyAccess.tax_no).where(UserCompanyAccess.user_id == user.id))
+        .scalars()
+        .all()
+    )
     return set(rows)
 
 
@@ -191,14 +195,18 @@ def get_user_crud_taxnos(user: User, db: Session) -> set[str] | None:
     """Tax numbers user can MUTATE (write). None = admin (all)."""
     if user.role == "admin":
         return None
-    if user.role != "supervisor":   # operator can never crud
+    if user.role != "supervisor":  # operator can never crud
         return set()
-    rows = db.execute(
-        select(UserCompanyAccess.tax_no).where(
-            UserCompanyAccess.user_id == user.id,
-            UserCompanyAccess.permission == "crud",
+    rows = (
+        db.execute(
+            select(UserCompanyAccess.tax_no).where(
+                UserCompanyAccess.user_id == user.id,
+                UserCompanyAccess.permission == "crud",
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     return set(rows)
 
 
@@ -222,6 +230,7 @@ def assert_can_crud(user: User, db: Session, tax_no: str) -> None:
 
 # ─── CSRF (synchronizer token in session) ────────────────────────────
 
+
 def get_or_make_csrf(request: Request) -> str:
     tok = request.session.get(SESSION_CSRF_KEY)
     if not tok:
@@ -235,6 +244,7 @@ def verify_csrf(request: Request, submitted: str | None) -> None:
     if not submitted or not expected:
         raise HTTPException(status_code=403, detail="CSRF token missing")
     import hmac as _hmac
+
     if not _hmac.compare_digest(expected.encode("utf-8"), submitted.encode("utf-8")):
         raise HTTPException(status_code=403, detail="CSRF token mismatch")
 
@@ -242,7 +252,7 @@ def verify_csrf(request: Request, submitted: str | None) -> None:
 class CSRFProtectMiddleware(BaseHTTPMiddleware):
     """Enforce CSRF on POST/PATCH/DELETE/PUT requests outside the public list."""
 
-    _EXEMPT_PATHS: set[str] = {"/login"}  # login form has its own CSRF check inline
+    _EXEMPT_PATHS: ClassVar[set[str]] = {"/login"}  # login form has its own CSRF check inline
 
     async def dispatch(
         self,
@@ -260,8 +270,9 @@ class CSRFProtectMiddleware(BaseHTTPMiddleware):
         body_token: str | None = None
         try:
             content_type = request.headers.get("content-type", "")
-            if content_type.startswith("application/x-www-form-urlencoded") or \
-               content_type.startswith("multipart/form-data"):
+            if content_type.startswith(
+                "application/x-www-form-urlencoded"
+            ) or content_type.startswith("multipart/form-data"):
                 # We need the form; awkward — we cache it on state
                 form = await request.form()
                 request.state._cached_form = form
@@ -274,11 +285,13 @@ class CSRFProtectMiddleware(BaseHTTPMiddleware):
             verify_csrf(request, submitted)
         except HTTPException as e:
             from fastapi.responses import JSONResponse
+
             return JSONResponse({"detail": e.detail}, status_code=e.status_code)
         return await call_next(request)
 
 
 # ─── Routes ─────────────────────────────────────────────────────────
+
 
 @router.get("/login", response_class=HTMLResponse)
 async def login_page(
@@ -291,7 +304,8 @@ async def login_page(
         return RedirectResponse(url=next or "/", status_code=302)  # type: ignore[return-value]
     csrf = get_or_make_csrf(request)
     return templates.TemplateResponse(
-        request, "login.html",
+        request,
+        "login.html",
         {"next": next or "/", "error": error, "locked_min": locked, "csrf_token": csrf},
     )
 
@@ -315,17 +329,17 @@ async def login_submit(
         )
     _record_ip_attempt(ip)
 
-    user = db.execute(
-        select(User).where(User.username == username, User.is_active.is_(True))
-    ).scalars().first()
+    user = (
+        db.execute(select(User).where(User.username == username, User.is_active.is_(True)))
+        .scalars()
+        .first()
+    )
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     if user is None:
         logger.warning("login fail: unknown username=%r ip=%s", username, ip)
-        return RedirectResponse(
-            url=f"/login?error=1&next={quote(next, safe='')}", status_code=302
-        )
+        return RedirectResponse(url=f"/login?error=1&next={quote(next, safe='')}", status_code=302)
 
     # Check lockout
     if user.locked_until and user.locked_until > now:
@@ -341,12 +355,11 @@ async def login_submit(
         if user.failed_login_count >= _MAX_USER_FAILED:
             user.locked_until = now + timedelta(seconds=_USER_LOCKOUT_DURATION_S)
             user.failed_login_count = 0
-            logger.warning("login lockout: user %s locked %dmin", user.username,
-                           _USER_LOCKOUT_DURATION_S // 60)
+            logger.warning(
+                "login lockout: user %s locked %dmin", user.username, _USER_LOCKOUT_DURATION_S // 60
+            )
         db.commit()
-        return RedirectResponse(
-            url=f"/login?error=1&next={quote(next, safe='')}", status_code=302
-        )
+        return RedirectResponse(url=f"/login?error=1&next={quote(next, safe='')}", status_code=302)
 
     # Success
     user.failed_login_count = 0

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
@@ -22,6 +22,7 @@ _ADMIN = require_role("admin")
 
 # ─────────────────────── List ───────────────────────
 
+
 @router.get("/users", response_class=HTMLResponse)
 def users_list(
     request: Request,
@@ -32,7 +33,8 @@ def users_list(
 ) -> HTMLResponse:
     users = db.execute(select(User).order_by(User.id)).scalars().all()
     return templates.TemplateResponse(
-        request, "admin_users_list.html",
+        request,
+        "admin_users_list.html",
         {
             "users": users,
             "csrf_token": get_or_make_csrf(request),
@@ -44,6 +46,7 @@ def users_list(
 
 # ─────────────────────── Create ───────────────────────
 
+
 @router.get("/users/new", response_class=HTMLResponse)
 def user_new_page(
     request: Request,
@@ -51,7 +54,8 @@ def user_new_page(
     error: str = "",
 ) -> HTMLResponse:
     return templates.TemplateResponse(
-        request, "admin_user_form.html",
+        request,
+        "admin_user_form.html",
         {"u": None, "error": error, "csrf_token": get_or_make_csrf(request)},
     )
 
@@ -105,6 +109,7 @@ def user_create(
 
 # ─────────────────────── Edit ───────────────────────
 
+
 @router.get("/users/{user_id}", response_class=HTMLResponse)
 def user_edit_page(
     request: Request,
@@ -118,9 +123,12 @@ def user_edit_page(
     if not u:
         raise HTTPException(404)
     return templates.TemplateResponse(
-        request, "admin_user_form.html",
+        request,
+        "admin_user_form.html",
         {
-            "u": u, "error": error, "success": success,
+            "u": u,
+            "error": error,
+            "success": success,
             "csrf_token": get_or_make_csrf(request),
         },
     )
@@ -168,7 +176,7 @@ def user_update(
         if err:
             return RedirectResponse(url=f"/admin/users/{user_id}?error={err}", status_code=302)
         u.password_hash = hash_password(new_password)
-        u.password_changed_at = datetime.now(timezone.utc)
+        u.password_changed_at = datetime.now(UTC)
         u.must_change_password = bool(force_change)
         u.failed_login_count = 0
         u.locked_until = None
@@ -209,12 +217,11 @@ def user_delete(
         raise HTTPException(404)
     db.delete(u)
     db.commit()
-    return RedirectResponse(
-        url=f"/admin/users?success=已删除 {u.username}", status_code=302
-    )
+    return RedirectResponse(url=f"/admin/users?success=已删除 {u.username}", status_code=302)
 
 
 # ─────────────────────── Scope (company access) ───────────────────────
+
 
 @router.get("/users/{user_id}/scope", response_class=HTMLResponse)
 def user_scope_page(
@@ -239,13 +246,16 @@ def user_scope_page(
     granted_taxnos = {a.tax_no for a, _ in granted}
 
     # All self companies (admin can grant any)
-    all_self = db.execute(
-        select(Company).where(Company.is_self.is_(True)).order_by(Company.tax_no)
-    ).scalars().all()
+    all_self = (
+        db.execute(select(Company).where(Company.is_self.is_(True)).order_by(Company.tax_no))
+        .scalars()
+        .all()
+    )
     available = [c for c in all_self if c.tax_no not in granted_taxnos]
 
     return templates.TemplateResponse(
-        request, "admin_user_scope.html",
+        request,
+        "admin_user_scope.html",
         {
             "u": u,
             "granted": granted,
@@ -271,18 +281,20 @@ def user_scope_grant(
     if not u:
         raise HTTPException(404)
     if permission not in ("view", "crud"):
-        return RedirectResponse(
-            url=f"/admin/users/{user_id}/scope?error=非法权限", status_code=302
-        )
+        return RedirectResponse(url=f"/admin/users/{user_id}/scope?error=非法权限", status_code=302)
     existing = db.get(UserCompanyAccess, (user_id, tax_no))
     if existing:
         existing.permission = permission
         existing.granted_by = admin.id
     else:
-        db.add(UserCompanyAccess(
-            user_id=user_id, tax_no=tax_no,
-            permission=permission, granted_by=admin.id,
-        ))
+        db.add(
+            UserCompanyAccess(
+                user_id=user_id,
+                tax_no=tax_no,
+                permission=permission,
+                granted_by=admin.id,
+            )
+        )
     db.commit()
     return RedirectResponse(
         url=f"/admin/users/{user_id}/scope?success=已授权 {tax_no} ({permission})",

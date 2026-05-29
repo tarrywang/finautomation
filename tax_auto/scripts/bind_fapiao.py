@@ -48,10 +48,19 @@ BSRLX_OPTIONS = {
 
 
 def build_canonical(method, full_url, headers):
-    parts = [method.upper(), headers.get("Accept",""), headers.get("Content-MD5",""),
-             headers.get("Content-Type",""), headers.get("Date","")]
-    custom = "".join(f"{k}:{v}\n" for k, v in
-                     sorted({k.lower(): v for k, v in headers.items() if k.lower().startswith("x-mars-")}.items()))
+    parts = [
+        method.upper(),
+        headers.get("Accept", ""),
+        headers.get("Content-MD5", ""),
+        headers.get("Content-Type", ""),
+        headers.get("Date", ""),
+    ]
+    custom = "".join(
+        f"{k}:{v}\n"
+        for k, v in sorted(
+            {k.lower(): v for k, v in headers.items() if k.lower().startswith("x-mars-")}.items()
+        )
+    )
     return "\n".join(parts) + "\n" + custom + full_url
 
 
@@ -85,21 +94,25 @@ def main() -> int:
     p.add_argument("--client-id", default=os.environ.get("FAPIAO_CLIENT_ID"))
     p.add_argument("--client-secret", default=os.environ.get("FAPIAO_CLIENT_SECRET"))
     p.add_argument("--tax-no", default=os.environ.get("FAPIAO_TAX_NO"))
-    p.add_argument("--zhongjianhao", "--zjh",
-                   default=os.environ.get("FAPIAO_ZHONGJIANHAO"),
-                   help="发票通分配的中间号 (用作 username 和 sjh)")
-    p.add_argument("--same-password", action="store_true",
-                   help="电子税局密码 与 办税人密码 是同一个,只问一次")
+    p.add_argument(
+        "--zhongjianhao",
+        "--zjh",
+        default=os.environ.get("FAPIAO_ZHONGJIANHAO"),
+        help="发票通分配的中间号 (用作 username 和 sjh)",
+    )
+    p.add_argument(
+        "--same-password", action="store_true", help="电子税局密码 与 办税人密码 是同一个,只问一次"
+    )
     args = p.parse_args()
 
     if not (args.client_id and args.client_secret and args.tax_no and args.zhongjianhao):
         p.error("client-id / client-secret / tax-no / zhongjianhao 全部必填")
 
-    print(f"将为以下税号刷新发票通的中间号绑定:")
+    print("将为以下税号刷新发票通的中间号绑定:")
     print(f"  taxNo:        {args.tax_no}")
     print(f"  中间号:        {args.zhongjianhao}")
     print(f"  client_id:    {args.client_id}")
-    print(f"  region/mode:  上海 / 中间号模式 (loginType=1 新版, dlfs=0, bdywlx=1 进项)")
+    print("  region/mode:  上海 / 中间号模式 (loginType=1 新版, dlfs=0, bdywlx=1 进项)")
     print()
     print("请准备好:")
     print("  · 电子税局登录密码 (password)")
@@ -144,8 +157,12 @@ def main() -> int:
     sts = build_canonical("POST", full_url, headers)
     headers["signature"] = f"mars {args.client_id}:{sign(args.client_secret, sts)}"
 
-    masked = {**body, "password":"***", "bsrmm":"***",
-              "bsrzjhm": f"{bsrzjhm[:4]}***{bsrzjhm[-2:]}" if len(bsrzjhm)>6 else "***"}
+    masked = {
+        **body,
+        "password": "***",
+        "bsrmm": "***",
+        "bsrzjhm": f"{bsrzjhm[:4]}***{bsrzjhm[-2:]}" if len(bsrzjhm) > 6 else "***",
+    }
     print(f"\n─── POST {full_url} ───")
     print(f"  body (masked): {json.dumps(masked, ensure_ascii=False)}")
 
@@ -158,10 +175,11 @@ def main() -> int:
         parsed = json.loads(text)
         print(json.dumps(parsed, ensure_ascii=False, indent=2))
     except json.JSONDecodeError:
-        print(text[:4000]); parsed = {}
+        print(text[:4000])
+        parsed = {}
 
     code = parsed.get("code") if isinstance(parsed, dict) else None
-    msg = parsed.get("message","") if isinstance(parsed, dict) else ""
+    msg = parsed.get("message", "") if isinstance(parsed, dict) else ""
     print()
     if resp.status_code == 200 and not code:
         print(f"RESULT: ✅ 绑定请求已接受 (requestId={parsed.get('requestId')})")

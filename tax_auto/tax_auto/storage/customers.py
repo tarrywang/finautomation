@@ -10,18 +10,25 @@ from tax_auto.storage.models import Customer
 
 
 def add_customer(
-    tax_id: str, alias: str, contact: str | None = None,
-    notification_level: str = "INFO", use_china_llm: bool = False,
+    tax_id: str,
+    alias: str,
+    contact: str | None = None,
+    notification_level: str = "INFO",
+    use_china_llm: bool = False,
 ) -> None:
     """Insert or update a customer."""
     with session_scope() as sess:
         row = sess.get(Customer, tax_id)
         if row is None:
-            sess.add(Customer(
-                tax_id=tax_id, alias=alias, contact=contact,
-                notification_level=notification_level,
-                use_china_llm=use_china_llm,
-            ))
+            sess.add(
+                Customer(
+                    tax_id=tax_id,
+                    alias=alias,
+                    contact=contact,
+                    notification_level=notification_level,
+                    use_china_llm=use_china_llm,
+                )
+            )
         else:
             row.alias = alias
             row.contact = contact
