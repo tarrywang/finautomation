@@ -11,7 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ...warehouse.models import Company, User, UserCompanyAccess
-from ..auth import get_current_user, get_or_make_csrf
+from ..auth import get_current_user, get_or_make_csrf, verify_csrf
 from ..deps import get_db, templates
 from ..security import check_password_policy, hash_password, verify_password
 
@@ -76,7 +76,7 @@ def change_password(
     new_password: str = Form(""),
     new_password_confirm: str = Form(""),
 ) -> Response:
-    # CSRF was verified by middleware
+    verify_csrf(request, csrf_token)
 
     if not verify_password(current_password, user.password_hash):
         return RedirectResponse(url="/profile/password?error=current", status_code=302)

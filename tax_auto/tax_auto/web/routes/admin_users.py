@@ -11,7 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ...warehouse.models import Company, User, UserCompanyAccess
-from ..auth import get_or_make_csrf, require_role
+from ..auth import get_or_make_csrf, require_role, verify_csrf
 from ..deps import get_db, templates
 from ..security import check_password_policy, hash_password
 
@@ -73,6 +73,7 @@ def user_create(
     password: str = Form(""),
     must_change_password: str = Form(""),
 ) -> Response:
+    verify_csrf(request, csrf_token)
     username = username.strip()
     if not username or len(username) < 3:
         return RedirectResponse(url="/admin/users/new?error=用户名至少 3 位", status_code=302)
@@ -148,6 +149,7 @@ def user_update(
     new_password: str = Form(""),
     force_change: str = Form(""),
 ) -> Response:
+    verify_csrf(request, csrf_token)
     u = db.get(User, user_id)
     if not u:
         raise HTTPException(404)
@@ -189,11 +191,13 @@ def user_update(
 
 @router.post("/users/{user_id}/unlock")
 def user_unlock(
+    request: Request,
     user_id: int,
     db: Annotated[Session, Depends(get_db)],
     admin: Annotated[User, Depends(_ADMIN)],
     csrf_token: str = Form(""),
 ) -> Response:
+    verify_csrf(request, csrf_token)
     u = db.get(User, user_id)
     if not u:
         raise HTTPException(404)
@@ -205,11 +209,13 @@ def user_unlock(
 
 @router.post("/users/{user_id}/delete")
 def user_delete(
+    request: Request,
     user_id: int,
     db: Annotated[Session, Depends(get_db)],
     admin: Annotated[User, Depends(_ADMIN)],
     csrf_token: str = Form(""),
 ) -> Response:
+    verify_csrf(request, csrf_token)
     if user_id == admin.id:
         return RedirectResponse(url="/admin/users?error=不能删自己", status_code=302)
     u = db.get(User, user_id)
@@ -277,6 +283,7 @@ def user_scope_grant(
     tax_no: str = Form(""),
     permission: str = Form("view"),
 ) -> Response:
+    verify_csrf(request, csrf_token)
     u = db.get(User, user_id)
     if not u:
         raise HTTPException(404)
@@ -304,12 +311,14 @@ def user_scope_grant(
 
 @router.post("/users/{user_id}/scope/{tax_no}/revoke")
 def user_scope_revoke(
+    request: Request,
     user_id: int,
     tax_no: str,
     db: Annotated[Session, Depends(get_db)],
     _admin: Annotated[User, Depends(_ADMIN)],
     csrf_token: str = Form(""),
 ) -> Response:
+    verify_csrf(request, csrf_token)
     access = db.get(UserCompanyAccess, (user_id, tax_no))
     if access:
         db.delete(access)

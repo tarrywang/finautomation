@@ -41,7 +41,10 @@ _session_max_age_h = int(os.environ.get("SESSION_MAX_AGE_HOURS", "8"))
 
 app.add_middleware(auth_module.AuthRedirectMiddleware)
 app.add_middleware(auth_module.LoadCurrentUserMiddleware)
-app.add_middleware(auth_module.CSRFProtectMiddleware)
+# NOTE: 不要把 CSRFProtectMiddleware 加回来 — BaseHTTPMiddleware 读 body 会消耗
+# ASGI receive 流,导致下游 route handler 的 Form() 全空。每个 POST handler
+# 自己调 verify_csrf(request, csrf_token) 即可(已在 login_submit / admin
+# / profile 等处加好)。
 app.add_middleware(
     SessionMiddleware,
     secret_key=_session_secret,
