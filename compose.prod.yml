@@ -1,0 +1,73 @@
+# Production compose for Ubuntu deployment.
+#
+# Differences from compose.yml (dev):
+#   • Postgres has NO host port mapping — only reachable via internal network
+#   • App container exposed only to host 127.0.0.1:8000 (nginx reverse-proxies it)
+#   • App restarts on crash; runs Alembic migrate on start
+#
+# Bring up:
+#   docker compose -f compose.prod.yml up -d --build
+#
+# Bootstrap admin (once):
+#   docker compose -f compose.prod.yml exec app python scripts/create_admin.py
+#
+# Daily sync (manual or via systemd timer on host):
+#   docker compose -f compose.prod.yml exec -T app python scripts/sync_daily.py --days 14
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: fapiao-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${PG_DB:-fapiao}
+      POSTGRES_USER: ${PG_USER:-fapiao}
+      POSTGRES_PASSWORD: ${PG_PASSWORD:?must be set}
+      TZ: Asia/Shanghai
+    # NO ports: section — postgres is internal-only
+    volumes:
+      - ./_data/fapiao_pg:/var/lib/postgresql/data
+    networks: [internal]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PG_USER:-fapiao} -d ${PG_DB:-fapiao}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  app:
+    build:
+      context: ./tax_auto
+      dockerfile: Dockerfile
+    container_name: fapiao-app
+    restart: unless-stopped
+    depends_on:
+      postgres: { condition: service_healthy }
+    environment:
+      # Hardcode internal hostname; never read PG_HOST from .env in prod
+      PG_HOST: postgres
+      PG_PORT: 5432
+      PG_DB: ${PG_DB:-fapiao}
+      PG_USER: ${PG_USER:-fapiao}
+      PG_PASSWORD: ${PG_PASSWORD}
+      FAPIAO_CLIENT_ID: ${FAPIAO_CLIENT_ID}
+      FAPIAO_CLIENT_SECRET: ${FAPIAO_CLIENT_SECRET}
+      SESSION_SECRET: ${SESSION_SECRET}
+      WEB_HTTPS: "1"
+      SESSION_MAX_AGE_HOURS: "8"
+      TZ: Asia/Shanghai
+    # Bind only to host loopback; nginx (host or in this network) proxies to here
+    ports:
+      - "127.0.0.1:8000:8000"
+    networks: [internal]
+    # Run migrations + start server
+    command:
+      - sh
+      - -c
+      - "alembic upgrade head && uvicorn tax_auto.web.main:app --host 0.0.0.0 --port 8000 --workers 2 --proxy-headers --forwarded-allow-ips=*"
+    volumes:
+      # Mount log dir so host systemd can pick it up
+      - ./_data/fapiao_logs:/var/log/fapiao
+
+networks:
+  internal:
+    driver: bridge

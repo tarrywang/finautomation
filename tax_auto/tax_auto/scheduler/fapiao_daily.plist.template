@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>ai.tarry.fapiao.daily</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>{{UV_BIN}}</string>
+        <string>--directory</string>
+        <string>{{PROJECT_DIR}}</string>
+        <string>run</string>
+        <string>python</string>
+        <string>{{PROJECT_DIR}}/scripts/sync_daily.py</string>
+        <string>--days</string>
+        <string>14</string>
+    </array>
+
+    <!-- Fires daily at 03:00 local time. Postgres/network typically idle. -->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key><integer>3</integer>
+        <key>Minute</key><integer>0</integer>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>{{PROJECT_DIR}}/runtime/logs/sync_daily.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>{{PROJECT_DIR}}/runtime/logs/sync_daily.err.log</string>
+
+    <key>WorkingDirectory</key>
+    <string>{{PROJECT_DIR}}</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:{{HOME}}/.local/bin</string>
+        <key>HOME</key>
+        <string>{{HOME}}</string>
+        <key>LANG</key>
+        <string>zh_CN.UTF-8</string>
+    </dict>
+
+    <!-- Don't run while machine is asleep; defer until awake. -->
+    <key>RunAtLoad</key>
+    <false/>
+</dict>
+</plist>

@@ -1,0 +1,18 @@
+# /etc/systemd/system/fapiao-backup.service
+[Unit]
+Description=Daily Postgres dump for fapiao
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/fapiao
+ExecStart=/bin/sh -c '\
+  STAMP=$(date +%%Y%%m%%d_%%H%%M); \
+  DEST=/var/backups/fapiao; \
+  mkdir -p "$DEST"; \
+  /usr/bin/docker compose -f compose.prod.yml exec -T postgres pg_dump -U fapiao -d fapiao -Fc > "$DEST/fapiao_$STAMP.dump"; \
+  # Keep 30 days of dumps \
+  find "$DEST" -name "fapiao_*.dump" -mtime +30 -delete'
+StandardOutput=append:/var/log/fapiao/backup.log
+StandardError=append:/var/log/fapiao/backup.err

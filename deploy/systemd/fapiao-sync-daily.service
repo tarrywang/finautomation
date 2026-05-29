@@ -1,0 +1,13 @@
+# /etc/systemd/system/fapiao-sync-daily.service
+[Unit]
+Description=发票通 daily sync (14-day rolling)
+After=docker.service network-online.target
+Requires=docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/fapiao
+ExecStart=/usr/bin/docker compose -f compose.prod.yml exec -T app python scripts/sync_daily.py --days 14
+StandardOutput=append:/var/log/fapiao/sync_daily.log
+StandardError=append:/var/log/fapiao/sync_daily.err

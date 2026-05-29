@@ -1,0 +1,40 @@
+# 数据 + 配置 (绝对不能进 git)
+.env
+_data/
+*.dump
+backups/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+.pytest_cache/
+*.egg-info/
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Runtime
+tax_auto/runtime/logs/
+tax_auto/runtime/metadata.db*
+tax_auto/runtime/screenshots/
+tax_auto/runtime/session/
+tax_auto/runtime/traces/
+
+# 临时文件
+/tmp/
+*.tmp
+*.log
+
+# 参考资料(发票通官方 PDF / 规划 HTML),不入 repo
+rawdata/
+*.html
+
+# 旧 git artifacts
+tax_auto/.git*

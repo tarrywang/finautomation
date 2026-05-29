@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>ai.tarry.tax_auto.monthly</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>{{UV_BIN}}</string>
+        <string>--directory</string>
+        <string>{{PROJECT_DIR}}</string>
+        <string>run</string>
+        <string>tax-auto</string>
+        <string>run</string>
+        <string>--month</string>
+        <string>{{MONTH_PLACEHOLDER_PASSED_AT_INSTALL}}</string>
+    </array>
+
+    <!-- Runs on the 5th of every month at 18:00 local time. -->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Day</key><integer>5</integer>
+        <key>Hour</key><integer>18</integer>
+        <key>Minute</key><integer>0</integer>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>{{PROJECT_DIR}}/runtime/logs/launchd.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>{{PROJECT_DIR}}/runtime/logs/launchd.err.log</string>
+
+    <key>WorkingDirectory</key>
+    <string>{{PROJECT_DIR}}</string>
+
+    <!-- Inherit user's PATH for `uv` etc. -->
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:{{HOME}}/.local/bin</string>
+        <key>HOME</key>
+        <string>{{HOME}}</string>
+        <key>TZ</key>
+        <string>Asia/Shanghai</string>
+    </dict>
+
+    <!-- Run on demand wakeup if Mac was asleep at the scheduled time. -->
+    <key>RunAtLoad</key>
+    <false/>
+    <key>KeepAlive</key>
+    <false/>
+</dict>
+</plist>

@@ -1,0 +1,12 @@
+# /etc/systemd/system/fapiao-sync-daily.timer
+[Unit]
+Description=Daily 03:00 trigger for fapiao-sync-daily.service
+Requires=fapiao-sync-daily.service
+
+[Timer]
+OnCalendar=*-*-* 03:00:00
+Persistent=true
+RandomizedDelaySec=5min
+
+[Install]
+WantedBy=timers.target

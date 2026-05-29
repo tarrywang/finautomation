@@ -1,0 +1,11 @@
+# /etc/systemd/system/fapiao-backup.timer
+[Unit]
+Description=Daily 04:00 trigger for fapiao-backup.service
+Requires=fapiao-backup.service
+
+[Timer]
+OnCalendar=*-*-* 04:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

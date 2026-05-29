@@ -1,0 +1,19 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: fapiao-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: fapiao
+      POSTGRES_USER: fapiao
+      POSTGRES_PASSWORD: ${PG_PASSWORD:-fapiao_dev_only}
+      TZ: Asia/Shanghai
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - ./_data/fapiao_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fapiao -d fapiao"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
