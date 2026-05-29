@@ -7,7 +7,10 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-WorkingDirectory=/opt/fapiao
+User=vmuser
+Group=vmuser
+WorkingDirectory=/home/vmuser/finautomation
 ExecStart=/usr/bin/docker compose -f compose.prod.yml exec -T app python scripts/sync_daily.py --days 14
-StandardOutput=append:/var/log/fapiao/sync_daily.log
-StandardError=append:/var/log/fapiao/sync_daily.err
+# Log to journald (see: journalctl -u fapiao-sync-daily.service)
+StandardOutput=journal
+StandardError=journal
