@@ -111,14 +111,18 @@
     <!-- 趋势 -->
     <div class="bg-white rounded-lg shadow p-4 border border-slate-200 lg:col-span-2">
       <h3 class="font-semibold text-sm mb-3">📈 月度趋势 (近 12 个月)</h3>
-      <canvas id="trendChart" height="120"></canvas>
+      <div class="relative" style="height:260px">
+        <canvas id="trendChart"></canvas>
+      </div>
     </div>
 
     <!-- 税率分布 -->
     <div class="bg-white rounded-lg shadow p-4 border border-slate-200">
       <h3 class="font-semibold text-sm mb-3">📊 进项税率分布</h3>
       {% if tax_rate_rows %}
-      <canvas id="taxRatePie" height="200"></canvas>
+      <div class="relative" style="height:220px">
+        <canvas id="taxRatePie"></canvas>
+      </div>
       <table class="w-full text-xs mt-3">
         {% for slv, n, total in tax_rate_rows %}
         <tr class="border-t border-slate-100"><td class="py-1">{{ slv }}</td><td class="text-right py-1">{{ n }} 张</td><td class="text-right py-1 num text-slate-500">¥{{ "{:,.0f}".format(total) }}</td></tr>
